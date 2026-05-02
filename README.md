@@ -16,6 +16,11 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Owner app flow
+
+- **Readable guide (styled, same font family as the HTML prototype):** [`reference/app-flow.html`](reference/app-flow.html) — open the file in your browser.
+- **Markdown copy:** [`reference/app-flow.md`](reference/app-flow.md)
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
@@ -31,6 +36,14 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 
 ## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Push this repo to GitHub (or GitLab / Bitbucket) and [import the project](https://vercel.com/new) in Vercel. Framework preset **Next.js** is detected automatically.
+2. Under **Settings → Environment Variables**, add (for **Production** and **Preview**):
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`  
+   Values are in Supabase → **Project Settings → API**.
+3. In Supabase → **Authentication** → **URL configuration**:
+   - **Site URL:** `https://<your-production-domain>` (your Vercel URL or custom domain).
+   - **Redirect URLs:** include `https://<your-production-domain>/auth/callback`. For Vercel **preview** deployments, add each preview URL’s `/auth/callback` (or your stable preview domain) so email/OAuth redirects work there too.
+4. Deploy. `npm run build` runs on Vercel; Node **20.9+** is required (see `package.json` `engines`).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See also [Next.js on Vercel](https://nextjs.org/docs/app/building-your-application/deploying).

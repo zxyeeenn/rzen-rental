@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RZen Rental — Owner app flow</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --indigo-950: #312e81;
+      --indigo-900: #3730a3;
+      --indigo-600: #4f46e5;
+      --indigo-100: #e0e7ff;
+      --indigo-50: #eef2ff;
+      --canvas: #f0f0f8;
+      --text: #1e1b4b;
+      --muted: #4338ca;
+      --muted-soft: #6366f1;
+      --border: #c7d2fe;
+      --card: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+      font-size: 1rem;
+      line-height: 1.65;
+      color: var(--text);
+      background: var(--canvas);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .header {
+      background: var(--indigo-900);
+      color: #fff;
+      padding: 1.25rem 1.5rem;
+    }
+
+    .header-inner {
+      max-width: 48rem;
+      margin: 0 auto;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .header p {
+      margin: 0.35rem 0 0;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--indigo-100);
+      opacity: 0.95;
+    }
+
+    .wrap {
+      max-width: 48rem;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+    }
+
+    .intro {
+      background: var(--card);
+      border: 1px solid var(--indigo-100);
+      border-radius: 0.75rem;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 1px 3px rgba(55, 48, 163, 0.06);
+    }
+
+    .intro p {
+      margin: 0;
+      font-size: 0.9375rem;
+      color: var(--muted);
+    }
+
+    .intro strong {
+      color: var(--indigo-950);
+    }
+
+    h2 {
+      margin: 2.25rem 0 0.75rem;
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--indigo-950);
+      letter-spacing: -0.02em;
+    }
+
+    h2:first-of-type {
+      margin-top: 0;
+    }
+
+    h3 {
+      margin: 1.5rem 0 0.5rem;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--indigo-600);
+    }
+
+    p {
+      margin: 0.5rem 0 1rem;
+      color: #334155;
+      font-size: 0.9375rem;
+    }
+
+    ul, ol {
+      margin: 0.5rem 0 1.25rem;
+      padding-left: 1.25rem;
+      color: #334155;
+      font-size: 0.9375rem;
+    }
+
+    li {
+      margin-bottom: 0.35rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+      background: var(--card);
+      border-radius: 0.75rem;
+      overflow: hidden;
+      border: 1px solid var(--indigo-100);
+      margin: 0.75rem 0 1.5rem;
+      box-shadow: 0 1px 3px rgba(55, 48, 163, 0.06);
+    }
+
+    th {
+      text-align: left;
+      padding: 0.65rem 1rem;
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      background: var(--indigo-50);
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--indigo-100);
+      vertical-align: top;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    code, .mono {
+      font-family: ui-monospace, "Cascadia Code", monospace;
+      font-size: 0.8125em;
+      background: var(--indigo-50);
+      color: var(--indigo-950);
+      padding: 0.12em 0.4em;
+      border-radius: 0.25rem;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.6875rem;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      border-radius: 0.375rem;
+    }
+
+    .badge-green {
+      background: rgba(34, 197, 94, 0.15);
+      color: #15803d;
+    }
+
+    .badge-red {
+      background: rgba(239, 68, 68, 0.15);
+      color: #b91c1c;
+    }
+
+    .badge-amber {
+      background: rgba(245, 158, 11, 0.2);
+      color: #b45309;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--indigo-100);
+      margin: 2rem 0;
+      border: none;
+    }
+
+    .note {
+      font-size: 0.875rem;
+      color: var(--muted);
+      border-left: 4px solid var(--indigo-600);
+      padding: 0.75rem 1rem;
+      margin: 1rem 0;
+      background: var(--card);
+      border-radius: 0 0.5rem 0.5rem 0;
+    }
+
+    .footer-links {
+      margin-top: 2.5rem;
+      font-size: 0.8125rem;
+      color: var(--muted-soft);
+    }
+
+    .footer-links a {
+      color: var(--indigo-600);
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .footer-links a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <h1>RZen Rental — Owner app flow</h1>
+      <p>Living reference for the Next.js app · Same typeface as prototype-single.html</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="intro">
+      <p>
+        <strong>Audience:</strong> You and your mother running a small apartment.
+        <strong> No public listings</strong> — the app is owner-only after sign-in.
+        For a plain Markdown version, see <span class="mono">app-flow.md</span> in this folder.
+      </p>
+    </div>
+
+    <h2>High-level routing</h2>
+    <ul>
+      <li><span class="mono">/</span> redirects to <span class="mono">/dashboard</span>.</li>
+      <li>All <span class="mono">/dashboard/*</span> routes require Supabase Auth (middleware → <span class="mono">/login?next=…</span> when env is configured).</li>
+      <li>If Supabase env vars are missing locally, middleware does not enforce login (useful for dry runs).</li>
+    </ul>
+
+    <h2>App map (top tabs)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Tab</th>
+          <th>Route</th>
+          <th>Purpose</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Dashboard</strong></td>
+          <td><span class="mono">/dashboard</span></td>
+          <td>Room overview grid: status pill, monthly rate, <strong>Mark occupied / Mark vacant</strong>, <strong>⋮</strong> menu for lease summary and all status options.</td>
+        </tr>
+        <tr>
+          <td><strong>Payments</strong></td>
+          <td><span class="mono">/dashboard/payments</span></td>
+          <td>Stat cards, <strong>By billing month</strong> chart, add payment form, transactions table, <strong>Mark paid</strong>.</td>
+        </tr>
+        <tr>
+          <td><strong>Tenants</strong></td>
+          <td><span class="mono">/dashboard/tenants</span></td>
+          <td>All <span class="mono">leases</span> rows (active + ended), newest lease start first.</td>
+        </tr>
+        <tr>
+          <td><strong>Utilities</strong></td>
+          <td><span class="mono">/dashboard/utilities</span></td>
+          <td>Electric / water readings per room and period → <span class="mono">utility_readings</span>.</td>
+        </tr>
+        <tr>
+          <td><strong>Sign in</strong></td>
+          <td><span class="mono">/login</span></td>
+          <td>Supabase email/password; signed-in users hitting login redirect to dashboard (or <span class="mono">next</span>).</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p style="font-size:0.875rem;color:var(--muted);">
+      The dashboard home header also links to <strong>Payments</strong>, <strong>Tenants</strong>, and <strong>Utilities</strong> for quick jumps.
+    </p>
+
+    <hr class="divider" />
+
+    <h2>Flow 1 — Room lifecycle (Dashboard)</h2>
+
+    <h3>Mark a unit occupied</h3>
+    <ol>
+      <li>Open <strong>Dashboard</strong>.</li>
+      <li>Find a <span class="badge badge-green">Vacant</span> card.</li>
+      <li>Click <strong>Mark occupied</strong> (green).</li>
+      <li>Updates <span class="mono">rooms.status</span> to <span class="mono">occupied</span> via your session (RLS).</li>
+    </ol>
+    <div class="note">
+      Tenant name and lease terms are <strong>not</strong> collected on that button. Add or edit the active lease in Supabase (<span class="mono">leases</span>) or review what’s on file under <strong>Tenants</strong>. The <strong>⋮</strong> menu shows the <strong>Active lease</strong> block when the room is occupied and a lease row exists.
+    </div>
+
+    <h3>Mark vacant or maintenance</h3>
+    <ul>
+      <li><strong>Occupied</strong> card: primary button <strong>Mark vacant</strong>, or <strong>⋮</strong> → <strong>Set status</strong> → Vacant / Maintenance.</li>
+      <li><strong>Maintenance</strong> card: <strong>Mark vacant</strong> or use the menu for any status.</li>
+    </ul>
+
+    <h3>Lease details &amp; status (⋮ menu)</h3>
+    <ol>
+      <li>Click <strong>⋮</strong> on a room card.</li>
+      <li>Read <strong>Active lease</strong> (tenant, rent, advance/deposit, due day, next due, dates, notes) when applicable.</li>
+      <li>Use <strong>Set status</strong>: Vacant / Occupied / Maintenance.</li>
+    </ol>
+
+    <hr class="divider" />
+
+    <h2>Flow 2 — Payments</h2>
+    <ol>
+      <li>Open <strong>Payments</strong>.</li>
+      <li>Review <strong>Total collected</strong>, <strong>This month</strong>, <strong>Pending</strong>, and the <strong>By billing month</strong> chart (paid vs pending by <span class="mono">YYYY-MM</span>).</li>
+      <li><strong>Add payment:</strong> room, amount (PHP), billing month, due date, optional paid date and notes → <strong>Save payment</strong>.</li>
+      <li><strong>Mark paid</strong> on a pending row sets status to paid and paid date to today.</li>
+      <li>Data: Supabase <span class="mono">payments</span> (migration may seed pending rows for active leases for the current month).</li>
+    </ol>
+
+    <hr class="divider" />
+
+    <h2>Flow 3 — Tenant history</h2>
+    <ol>
+      <li>Open <strong>Tenants</strong>.</li>
+      <li>Scan <span class="badge badge-green">Active</span> vs ended leases, rent, due day, start/end, notes.</li>
+      <li>Edits today: Supabase Table Editor (no in-app lease form yet).</li>
+    </ol>
+
+    <hr class="divider" />
+
+    <h2>Flow 4 — Utilities</h2>
+    <ol>
+      <li>Open <strong>Utilities</strong>.</li>
+      <li>Choose room, kind (electric / water), period, previous &amp; current readings, optional notes → <strong>Save reading</strong>.</li>
+      <li>Stored in <span class="mono">utility_readings</span>.</li>
+    </ol>
+
+    <hr class="divider" />
+
+    <h2>Status colors (dashboard cards)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>Meaning</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge badge-green">Vacant</span></td>
+          <td>Available — green accent.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-red">Occupied</span></td>
+          <td>Rented — red accent.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-amber">Maintenance</span></td>
+          <td>Not bookable — amber accent.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <hr class="divider" />
+
+    <h2>Prototype vs app (<span class="mono">prototype-single.html</span>)</h2>
+    <p>
+      The standalone prototype includes extras (invoice line items, guest inquiries, richer settlement math).
+      <strong>Those are not in the Next.js app.</strong> Keep the prototype file as a visual archive if you want to rebuild features later.
+    </p>
+
+    <h2>Tech notes</h2>
+    <ul>
+      <li><strong>RLS:</strong> Operational tables use <span class="mono">authenticated</span> policies (see <span class="mono">supabase/migrations</span>).</li>
+      <li><strong>Room updates</strong> revalidate dashboard and related paths; payments actions revalidate the payments page.</li>
+    </ul>
+
+    <p class="footer-links">
+      ← Back to <a href="./prototype-single.html">prototype-single.html</a>
+      · <a href="./app-flow.md">app-flow.md</a> (Markdown)
+    </p>
+  </main>
+</body>
+</html>

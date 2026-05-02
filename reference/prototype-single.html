@@ -1,0 +1,2095 @@
+<!doctype html>
+<html lang="en" class="h-full">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apartment Rental Dashboard</title>
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="/_sdk/element_sdk.js"></script>
+    <script src="/_sdk/data_sdk.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        .room-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .room-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 12px 32px rgba(55, 48, 163, 0.15);
+        }
+
+        .status-btn {
+            transition: all 0.2s ease;
+        }
+
+        .status-btn:hover {
+            filter: brightness(1.1);
+        }
+
+        .border-vacant {
+            border-left: 5px solid #22c55e;
+        }
+
+        .border-occupied {
+            border-left: 5px solid #ef4444;
+        }
+
+        .border-maintenance {
+            border-left: 5px solid #f59e0b;
+        }
+
+        .toast-enter {
+            animation: slideUp 0.35s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.4s ease both;
+        }
+
+        .inquiry-row {
+            animation: fadeIn 0.3s ease both;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .modal-overlay.hidden {
+            display: none;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            max-width: 450px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: fadeIn 0.3s ease;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .invoice-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .invoice-table td {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e0e7ff;
+        }
+
+        .invoice-table td:first-child {
+            text-align: left;
+        }
+
+        .invoice-table td:last-child {
+            text-align: right;
+        }
+
+        .invoice-table .total-row {
+            border-top: 2px solid #4f46e5;
+            border-bottom: none;
+            font-weight: bold;
+        }
+
+        .paid-badge {
+            display: inline-block;
+            px-2 py-1;
+            border-radius: 0.5rem;
+            background: #22c55e20;
+            color: #22c55e;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+
+        .unpaid-badge {
+            display: inline-block;
+            px-2 py-1;
+            border-radius: 0.5rem;
+            background: #ef444420;
+            color: #ef4444;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        indigo: { 50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe', 300: '#a5b4fc', 400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca', 800: '#3730a3', 900: '#312e81' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+
+<body class="h-full">
+    <div id="app" class="h-full w-full overflow-auto" style="background:#f0f0f8;"><!-- Header -->
+        <header id="header-bar" class="w-full" style="background:#3730a3;">
+            <div class="max-w-6xl mx-auto px-4 py-5 flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background:#4f46e5;"><i
+                        data-lucide="building-2" style="width:22px;height:22px;color:#e0e7ff;"></i>
+                </div>
+                <div>
+                    <h1 id="el-dashboard-title" class="text-white font-extrabold text-xl tracking-tight">Apartment
+                        Rental Dashboard</h1>
+                    <p class="text-indigo-300 text-xs font-medium">Manage rooms, utilities &amp; inquiries</p>
+                </div>
+            </div>
+        </header>
+        <main class="max-w-6xl mx-auto px-4 py-6 flex flex-col gap-8 pb-12" style="position:relative;z-index:2;">
+            <!-- TABS NAVIGATION -->
+            <div class="bg-white rounded-xl shadow-sm border border-indigo-100 p-1 flex gap-1 mb-2"
+                style="position:relative;z-index:20;">
+                <button id="tab-dashboard"
+                    class="flex-1 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all cursor-pointer"
+                    style="background:#4f46e5;color:white;" onclick="switchTab('dashboard'); return false;"> <span
+                        class="flex items-center justify-center gap-2"><i data-lucide="grid-3x3"
+                            style="width:16px;height:16px;"></i> Dashboard</span> </button> <button id="tab-payments"
+                    class="flex-1 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all cursor-pointer"
+                    style="background:#e0e7ff;color:#4f46e5;" onclick="switchTab('payments'); return false;"> <span
+                        class="flex items-center justify-center gap-2"><i data-lucide="credit-card"
+                            style="width:16px;height:16px;"></i> Payments</span> </button> <button id="tab-tenants"
+                    class="flex-1 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all cursor-pointer"
+                    style="background:#e0e7ff;color:#4f46e5;" onclick="switchTab('tenants'); return false;"> <span
+                        class="flex items-center justify-center gap-2"><i data-lucide="users"
+                            style="width:16px;height:16px;"></i> Tenant History</span> </button>
+            </div><!-- DASHBOARD TAB -->
+            <div id="tab-content-dashboard" class="flex flex-col gap-8"
+                style="display:flex;position:relative;z-index:3;"><!-- ROOM GRID -->
+                <section class="fade-in">
+                    <div class="flex items-center gap-2 mb-4"><i data-lucide="layout-grid"
+                            style="width:20px;height:20px;color:#4f46e5;"></i>
+                        <h2 id="el-rooms-title" class="font-bold text-lg" style="color:#312e81;">Room Overview</h2>
+                    </div>
+                    <div id="room-grid"
+                        style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1.5rem;width:100%;position:relative;z-index:5;">
+                    </div>
+                </section><!-- GUEST INQUIRY FORM -->
+                <section class="fade-in" style="animation-delay:0.2s;">
+                    <div class="flex items-center gap-2 mb-4"><i data-lucide="user-plus"
+                            style="width:20px;height:20px;color:#4f46e5;"></i>
+                        <h2 id="el-inquiry-title" class="font-bold text-lg" style="color:#312e81;">Guest Inquiry</h2>
+                    </div>
+                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-indigo-100">
+                        <form id="inquiry-form" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div><label for="inq-name" class="block text-xs font-semibold mb-1"
+                                    style="color:#4338ca;">Full Name</label> <input id="inq-name" type="text" required
+                                    class="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                                    placeholder="Juan Dela Cruz">
+                            </div>
+                            <div><label for="inq-phone" class="block text-xs font-semibold mb-1"
+                                    style="color:#4338ca;">Phone Number</label> <input id="inq-phone" type="tel"
+                                    required
+                                    class="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                                    placeholder="09XX-XXX-XXXX">
+                            </div>
+                            <div><label for="inq-room" class="block text-xs font-semibold mb-1"
+                                    style="color:#4338ca;">Room Interest</label> <select id="inq-room" required
+                                    class="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white">
+                                    <option value="">Select room...</option>
+                                    <option>Room 1</option>
+                                    <option>Room 2</option>
+                                    <option>Room 3</option>
+                                    <option>Room 4</option>
+                                    <option>Room 5</option>
+                                    <option>Room 6</option>
+                                    <option>Room 7</option>
+                                    <option>Room 8</option>
+                                </select>
+                            </div>
+                        </form><button id="inq-btn"
+                            class="mt-4 px-6 py-2.5 rounded-lg text-white text-sm font-bold shadow-md hover:shadow-lg transition-all"
+                            style="background:#4f46e5;"> <span class="flex items-center gap-2"><i data-lucide="send"
+                                    style="width:16px;height:16px;"></i> Submit Inquiry</span> </button>
+                        <div id="inq-toast"
+                            class="hidden mt-3 rounded-lg px-4 py-2.5 text-sm font-semibold text-green-800 bg-green-100 border border-green-300 toast-enter">
+                        </div>
+                        <div id="inq-error"
+                            class="hidden mt-3 rounded-lg px-4 py-2.5 text-sm font-semibold text-red-800 bg-red-100 border border-red-300 toast-enter">
+                        </div><!-- Inquiry List -->
+                        <div id="inquiry-list-wrap" class="mt-5 hidden">
+                            <h3 class="text-xs font-bold uppercase tracking-wider mb-2" style="color:#4338ca;">Recent
+                                Inquiries</h3>
+                            <div id="inquiry-list" class="flex flex-col gap-2 max-h-52 overflow-auto"></div>
+                        </div>
+                    </div>
+                </section>
+            </div><!-- PAYMENTS TAB -->
+            <div id="tab-content-payments" class="flex flex-col gap-6" style="display:none;"><!-- Payment Statistics -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-indigo-100">
+                        <div class="flex items-center gap-2 mb-2"><i data-lucide="trending-up"
+                                style="width:18px;height:18px;color:#22c55e;"></i> <span
+                                class="text-xs font-semibold uppercase tracking-wider" style="color:#4338ca;">Total
+                                Collected</span>
+                        </div>
+                        <div id="stat-total-collected" class="text-2xl font-extrabold" style="color:#22c55e;">
+                            ₱0
+                        </div>
+                        <div class="text-xs text-indigo-400 mt-1">
+                            All time
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-indigo-100">
+                        <div class="flex items-center gap-2 mb-2"><i data-lucide="calendar"
+                                style="width:18px;height:18px;color:#6366f1;"></i> <span
+                                class="text-xs font-semibold uppercase tracking-wider" style="color:#4338ca;">This
+                                Month</span>
+                        </div>
+                        <div id="stat-month-collected" class="text-2xl font-extrabold" style="color:#6366f1;">
+                            ₱0
+                        </div>
+                        <div class="text-xs text-indigo-400 mt-1" id="stat-month-label">
+                            January
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-indigo-100">
+                        <div class="flex items-center gap-2 mb-2"><i data-lucide="zap"
+                                style="width:18px;height:18px;color:#f59e0b;"></i> <span
+                                class="text-xs font-semibold uppercase tracking-wider"
+                                style="color:#4338ca;">Pending</span>
+                        </div>
+                        <div id="stat-pending" class="text-2xl font-extrabold" style="color:#f59e0b;">
+                            ₱0
+                        </div>
+                        <div class="text-xs text-indigo-400 mt-1" id="stat-pending-count">
+                            0 bills
+                        </div>
+                    </div>
+                </div><!-- Payment Charts -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-indigo-100">
+                        <div class="flex items-center gap-2 mb-4"><i data-lucide="bar-chart-3"
+                                style="width:20px;height:20px;color:#4f46e5;"></i>
+                            <h3 class="font-bold text-lg" style="color:#312e81;">Monthly Revenue</h3>
+                        </div>
+                        <div style="height:300px;position:relative;">
+                            <canvas id="payment-chart-monthly"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-indigo-100">
+                        <div class="flex items-center gap-2 mb-4"><i data-lucide="pie-chart"
+                                style="width:20px;height:20px;color:#4f46e5;"></i>
+                            <h3 class="font-bold text-lg" style="color:#312e81;">Payment Status Breakdown</h3>
+                        </div>
+                        <div style="height:300px;position:relative;">
+                            <canvas id="payment-chart-status"></canvas>
+                        </div>
+                    </div>
+                </div><!-- Payment Table -->
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-indigo-100">
+                    <div class="flex items-center gap-2 mb-4"><i data-lucide="credit-card"
+                            style="width:20px;height:20px;color:#4f46e5;"></i>
+                        <h2 class="font-bold text-lg" style="color:#312e81;">Payment Transactions</h2>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr style="background:#eef2ff;border-bottom:2px solid #c7d2fe;">
+                                    <th class="px-4 py-3 text-left font-semibold" style="color:#4338ca;">Room</th>
+                                    <th class="px-4 py-3 text-left font-semibold" style="color:#4338ca;">Amount</th>
+                                    <th class="px-4 py-3 text-left font-semibold" style="color:#4338ca;">Date</th>
+                                    <th class="px-4 py-3 text-left font-semibold" style="color:#4338ca;">Status</th>
+                                    <th class="px-4 py-3 text-center font-semibold" style="color:#4338ca;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payments-table-body">
+                            </tbody>
+                        </table>
+                    </div>
+                    <p id="no-payments-msg" class="text-center text-indigo-400 py-6 text-sm">No payment records yet.
+                        Create invoices to track payments.</p>
+                </div>
+            </div><!-- TENANT HISTORY TAB -->
+            <div id="tab-content-tenants" class="flex flex-col gap-6" style="display:none;"><!-- Tenant Statistics -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-indigo-100">
+                        <div class="flex items-center gap-2 mb-2"><i data-lucide="users"
+                                style="width:18px;height:18px;color:#4f46e5;"></i> <span
+                                class="text-xs font-semibold uppercase tracking-wider" style="color:#4338ca;">Active
+                                Tenants</span>
+                        </div>
+                        <div id="stat-active-tenants" class="text-2xl font-extrabold" style="color:#4f46e5;">
+                            0
+                        </div>
+                        <div class="text-xs text-indigo-400 mt-1">
+                            Currently occupied
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-indigo-100">
+                        <div class="flex items-center gap-2 mb-2"><i data-lucide="check-circle"
+                                style="width:18px;height:18px;color:#22c55e;"></i> <span
+                                class="text-xs font-semibold uppercase tracking-wider" style="color:#4338ca;">Total
+                                Tenants</span>
+                        </div>
+                        <div id="stat-total-tenants" class="text-2xl font-extrabold" style="color:#22c55e;">
+                            0
+                        </div>
+                        <div class="text-xs text-indigo-400 mt-1">
+                            All time
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-indigo-100">
+                        <div class="flex items-center gap-2 mb-2"><i data-lucide="archive"
+                                style="width:18px;height:18px;color:#6366f1;"></i> <span
+                                class="text-xs font-semibold uppercase tracking-wider"
+                                style="color:#4338ca;">Inactive</span>
+                        </div>
+                        <div id="stat-inactive-tenants" class="text-2xl font-extrabold" style="color:#6366f1;">
+                            0
+                        </div>
+                        <div class="text-xs text-indigo-400 mt-1">
+                            Checked out
+                        </div>
+                    </div>
+                </div><!-- Tenant Chart -->
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-indigo-100">
+                    <div class="flex items-center gap-2 mb-4"><i data-lucide="bar-chart-3"
+                            style="width:20px;height:20px;color:#4f46e5;"></i>
+                        <h3 class="font-bold text-lg" style="color:#312e81;">Tenant Status Distribution</h3>
+                    </div>
+                    <div style="height:300px;position:relative;">
+                        <canvas id="tenant-chart-status"></canvas>
+                    </div>
+                </div><!-- Tenant Table -->
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-indigo-100">
+                    <div class="flex items-center gap-2 mb-4"><i data-lucide="users"
+                            style="width:20px;height:20px;color:#4f46e5;"></i>
+                        <h2 class="font-bold text-lg" style="color:#312e81;">Tenant History</h2>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr style="background:#eef2ff;border-bottom:2px solid #c7d2fe;">
+                                    <th class="px-4 py-3 text-left font-semibold" style="color:#4338ca;">Name</th>
+                                    <th class="px-4 py-3 text-left font-semibold" style="color:#4338ca;">Phone</th>
+                                    <th class="px-4 py-3 text-left font-semibold" style="color:#4338ca;">Room</th>
+                                    <th class="px-4 py-3 text-left font-semibold" style="color:#4338ca;">Move-in Date
+                                    </th>
+                                    <th class="px-4 py-3 text-left font-semibold" style="color:#4338ca;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tenants-table-body">
+                            </tbody>
+                        </table>
+                    </div>
+                    <p id="no-tenants-msg" class="text-center text-indigo-400 py-6 text-sm">No tenant records yet. Add
+                        tenants to track history.</p>
+                </div>
+            </div>
+        </main>
+    </div><!-- Toast container for notifications -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
+    <!-- Status Confirmation Modal -->
+    <div id="status-confirm-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width:400px;">
+            <h3 class="font-bold text-lg mb-4" style="color:#312e81;">Confirm Status Change</h3>
+            <p id="confirm-message" class="text-sm mb-6 text-indigo-700"></p>
+            <div class="flex gap-3">
+                <button onclick="cancelStatusChange()"
+                    class="flex-1 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all"
+                    style="background:#e0e7ff;color:#4338ca;" onmouseover="this.style.background='#c7d2fe'"
+                    onmouseout="this.style.background='#e0e7ff'">Cancel</button> <button onclick="confirmStatusChange()"
+                    class="flex-1 px-4 py-2.5 rounded-lg font-semibold text-sm text-white transition-all"
+                    style="background:#4f46e5;" onmouseover="this.style.background='#4338ca'"
+                    onmouseout="this.style.background='#4f46e5'">Confirm</button>
+            </div>
+        </div>
+    </div><!-- Edit Room Modal -->
+    <div id="edit-room-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="font-bold text-lg mb-4" style="color:#312e81;">Edit Room <span id="edit-room-id"></span></h3>
+            <form id="edit-room-form" class="flex flex-col gap-3">
+                <div>
+                    <label for="edit-room-rate" class="block text-xs font-semibold mb-1" style="color:#4338ca;">Monthly
+                        Rate (₱)</label> <input id="edit-room-rate" type="number" min="0" step="100" required
+                        class="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                        placeholder="5000">
+                </div>
+            </form>
+            <div class="flex gap-3 mt-5">
+                <button onclick="closeEditRoomModal()"
+                    class="flex-1 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all"
+                    style="background:#e0e7ff;color:#4338ca;" onmouseover="this.style.background='#c7d2fe'"
+                    onmouseout="this.style.background='#e0e7ff'">Cancel</button> <button onclick="saveEditRoom()"
+                    class="flex-1 px-4 py-2.5 rounded-lg font-semibold text-sm text-white transition-all"
+                    style="background:#4f46e5;" onmouseover="this.style.background='#4338ca'"
+                    onmouseout="this.style.background='#4f46e5'">Save Changes</button>
+            </div>
+        </div>
+    </div><!-- Tenant Modal -->
+    <div id="tenant-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="font-bold text-lg mb-4" style="color:#312e81;">Add Tenant for Room <span
+                    id="modal-room-id"></span></h3>
+            <form id="tenant-form" class="flex flex-col gap-3">
+                <div>
+                    <label for="tenant-name" class="block text-xs font-semibold mb-1" style="color:#4338ca;">Tenant
+                        Name</label> <input id="tenant-name" type="text" required
+                        class="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                        placeholder="Juan Dela Cruz">
+                </div>
+                <div>
+                    <label for="tenant-phone" class="block text-xs font-semibold mb-1" style="color:#4338ca;">Phone
+                        Number</label> <input id="tenant-phone" type="tel" required
+                        class="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                        placeholder="09XX-XXX-XXXX">
+                </div>
+                <div>
+                    <label for="tenant-months" class="block text-xs font-semibold mb-1" style="color:#4338ca;">Length of
+                        Stay (Months)</label> <input id="tenant-months" type="number" min="1" max="24" required
+                        class="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                        placeholder="6" value="6">
+                </div>
+                <div>
+                    <label for="tenant-movein" class="block text-xs font-semibold mb-1" style="color:#4338ca;">Move-in
+                        Date</label> <input id="tenant-movein" type="date" required
+                        class="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                </div>
+            </form>
+            <div class="flex gap-3 mt-5">
+                <button onclick="closeTenantModal()"
+                    class="flex-1 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all"
+                    style="background:#e0e7ff;color:#4338ca;" onmouseover="this.style.background='#c7d2fe'"
+                    onmouseout="this.style.background='#e0e7ff'">Cancel</button> <button onclick="saveTenant()"
+                    class="flex-1 px-4 py-2.5 rounded-lg font-semibold text-sm text-white transition-all"
+                    style="background:#4f46e5;" onmouseover="this.style.background='#4338ca'"
+                    onmouseout="this.style.background='#4f46e5'">Save Tenant</button>
+            </div>
+        </div>
+    </div><!-- Payment Invoice Modal -->
+    <div id="payment-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width:550px;">
+            <h3 class="font-bold text-lg mb-4" style="color:#312e81;">Payment Tracking - Room <span
+                    id="payment-room-id"></span></h3><!-- Billing Phase Indicator -->
+            <div id="billing-phase-indicator" class="mb-4 p-3 rounded-lg border-l-4"
+                style="border-left-color:#4f46e5;background:#eef2ff;">
+                <p class="text-xs font-bold uppercase tracking-wider" style="color:#4338ca;">Billing Phase</p>
+                <p id="phase-text" class="text-sm font-semibold mt-1" style="color:#312e81;"></p>
+            </div><!-- Bills List -->
+            <div class="bg-indigo-50 rounded-lg overflow-hidden mb-4" style="border:1px solid #c7d2fe;">
+                <div id="bills-list" class="flex flex-col divide-y" style="border-color:#c7d2fe;">
+                    <!-- Bills will be dynamically inserted here -->
+                </div>
+            </div><!-- Utilities Calculator -->
+            <div id="utility-calc-section" class="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200 hidden">
+                <p class="text-xs font-semibold mb-3" style="color:#1e40af;">📊 Calculate Utilities for This Month</p>
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <div><label for="utility-month-selector" class="block text-xs font-semibold mb-1"
+                            style="color:#4338ca;">Select Month</label> <select id="utility-month-selector"
+                            class="w-full border border-blue-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"></select>
+                    </div>
+                    <div></div>
+                </div>
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <div><label for="inv-prev-elec" class="block text-xs font-semibold mb-1" style="color:#4338ca;">Prev
+                            Electric (kWh)</label> <input id="inv-prev-elec" type="number" min="0"
+                            class="w-full border border-blue-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            placeholder="0">
+                    </div>
+                    <div><label for="inv-curr-elec" class="block text-xs font-semibold mb-1" style="color:#4338ca;">Curr
+                            Electric (kWh)</label> <input id="inv-curr-elec" type="number" min="0"
+                            class="w-full border border-blue-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            placeholder="0">
+                    </div>
+                </div><button class="w-full px-3 py-2 rounded text-white text-xs font-bold transition-all"
+                    style="background:#2563eb;" onmouseover="this.style.background='#1d4ed8'"
+                    onmouseout="this.style.background='#2563eb'"
+                    onclick="calculateUtilityInvoice(); return false;">Calculate &amp; Add to Invoice</button>
+            </div><!-- Action Buttons -->
+            <div class="flex gap-3">
+                <button onclick="closePaymentModal()"
+                    class="flex-1 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all"
+                    style="background:#e0e7ff;color:#4338ca;" onmouseover="this.style.background='#c7d2fe'"
+                    onmouseout="this.style.background='#e0e7ff'">Close</button>
+            </div>
+        </div>
+    </div><!-- Renter Modal -->
+    <div id="renter-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="font-bold text-lg mb-4" style="color:#312e81;">Add Renter Information</h3>
+            <form id="renter-form" class="flex flex-col gap-3">
+                <div>
+                    <label for="renter-name" class="block text-xs font-semibold mb-1" style="color:#4338ca;">Full
+                        Name</label> <input id="renter-name" type="text" required
+                        class="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                        placeholder="Juan Dela Cruz">
+                </div>
+                <div>
+                    <label for="renter-phone" class="block text-xs font-semibold mb-1" style="color:#4338ca;">Phone
+                        Number</label> <input id="renter-phone" type="tel" required
+                        class="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                        placeholder="09XX-XXX-XXXX">
+                </div>
+                <div>
+                    <label for="renter-room" class="block text-xs font-semibold mb-1" style="color:#4338ca;">Room
+                        Number</label> <select id="renter-room" required
+                        class="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white">
+                        <option value="">Select room...</option>
+                        <option>Room 1</option>
+                        <option>Room 2</option>
+                        <option>Room 3</option>
+                        <option>Room 4</option>
+                        <option>Room 5</option>
+                        <option>Room 6</option>
+                        <option>Room 7</option>
+                        <option>Room 8</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="renter-checkin" class="block text-xs font-semibold mb-1" style="color:#4338ca;">Check-in
+                        Date</label> <input id="renter-checkin" type="date" required
+                        class="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                </div>
+                <div>
+                    <label for="renter-checkout" class="block text-xs font-semibold mb-1"
+                        style="color:#4338ca;">Check-out Date</label> <input id="renter-checkout" type="date"
+                        class="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                </div>
+                <div>
+                    <label for="renter-remarks" class="block text-xs font-semibold mb-1"
+                        style="color:#4338ca;">Remarks</label> <textarea id="renter-remarks" rows="3"
+                        class="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                        placeholder="Add any notes or remarks..."></textarea>
+                </div>
+            </form>
+            <div class="flex gap-3 mt-5">
+                <button onclick="closeRenterModal()"
+                    class="flex-1 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all"
+                    style="background:#e0e7ff;color:#4338ca;" onmouseover="this.style.background='#c7d2fe'"
+                    onmouseout="this.style.background='#e0e7ff'">Cancel</button> <button onclick="saveRenter()"
+                    class="flex-1 px-4 py-2.5 rounded-lg font-semibold text-sm text-white transition-all"
+                    style="background:#4f46e5;" onmouseover="this.style.background='#4338ca'"
+                    onmouseout="this.style.background='#4f46e5'">Save Renter</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        // ===== ROOM DATA =====
+        const STATUSES = ['Vacant', 'Occupied', 'Maintenance'];
+        const STATUS_COLORS = { Vacant: '#22c55e', Occupied: '#ef4444', Maintenance: '#f59e0b' };
+        const STATUS_BORDERS = { Vacant: 'border-vacant', Occupied: 'border-occupied', Maintenance: 'border-maintenance' };
+        const rooms = Array.from({ length: 8 }, (_, i) => ({ id: i + 1, rate: 5000, status: 'Vacant', tenant: null }));
+        let tenantData = {}; // Maps room ID to tenant info
+        let paymentData = {}; // Maps room ID to payment info
+        let tenantRecords = []; // Array of all tenant records
+        let paymentRecords = []; // Array of all payment records
+        let inquiries = []; // Array of all inquiries
+        let pendingStatusChange = null; // Holds pending status change data
+        let paymentChartMonthly = null;
+        let paymentChartStatus = null;
+        let tenantChartStatus = null;
+
+        function buildRoomGrid() {
+            const grid = document.getElementById('room-grid');
+            if (!grid) {
+                console.error('room-grid element not found');
+                return;
+            }
+            grid.innerHTML = '';
+
+            rooms.forEach(room => {
+                const card = document.createElement('div');
+                card.id = `room-${room.id}`;
+                card.className = `room-card bg-white rounded-xl shadow-md hover:shadow-xl transition-all p-5`;
+                card.style.display = 'flex';
+                card.style.flexDirection = 'column';
+                card.style.position = 'relative';
+                card.style.zIndex = '10';
+
+                const tenant = tenantData[room.id];
+
+                // Color scheme based on status
+                let statusColor, statusBg, statusBorder, accentColor, accentBg;
+                if (room.status === 'Occupied') {
+                    statusColor = '#dc2626';
+                    statusBg = '#fee2e2';
+                    statusBorder = '#fca5a5';
+                    accentColor = '#dc2626';
+                    accentBg = '#fef2f2';
+                } else if (room.status === 'Maintenance') {
+                    statusColor = '#ea580c';
+                    statusBg = '#ffedd5';
+                    statusBorder = '#fed7aa';
+                    accentColor = '#ea580c';
+                    accentBg = '#fff7ed';
+                } else { // Vacant
+                    statusColor = '#16a34a';
+                    statusBg = '#dcfce7';
+                    statusBorder = '#86efac';
+                    accentColor = '#16a34a';
+                    accentBg = '#f0fdf4';
+                }
+
+                card.style.borderLeft = `6px solid ${statusColor}`;
+                card.style.overflow = 'hidden';
+
+                let tenantInfo = '';
+                if (tenant && room.status === 'Occupied') {
+                    const movein = new Date(tenant.move_in_date);
+                    const checkout = new Date(tenant.checkout_date);
+                    const today = new Date();
+                    const daysRemaining = Math.ceil((checkout - today) / (1000 * 60 * 60 * 24));
+                    const daysClass = daysRemaining <= 7 ? 'text-red-600 font-bold' : (daysRemaining <= 30 ? 'text-amber-600 font-semibold' : 'text-green-600');
+
+                    const moveinStr = movein.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    const checkoutStr = checkout.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+                    tenantInfo = `
+        <div class="mt-5 pt-5 border-t-2" style="border-color:${statusBorder};">
+          <div class="mb-4">
+            <div class="text-xs font-extrabold uppercase tracking-widest" style="color:${statusColor};letter-spacing:0.05em;">Tenant Info</div>
+            <div class="font-bold text-base mt-2 leading-tight" style="color:#1f2937;">${esc(tenant.name)}</div>
+            <div class="text-sm mt-1.5" style="color:${statusColor};font-weight:600;">${esc(tenant.phone)}</div>
+          </div>
+          
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem;padding-top:1rem;border-top:1px solid ${statusBorder};">
+            <div>
+              <div class="text-xs font-semibold uppercase tracking-widest" style="color:#6b7280;letter-spacing:0.03em;">Move-in</div>
+              <div class="font-bold text-sm mt-1.5" style="color:#1f2937;">${moveinStr}</div>
+            </div>
+            <div>
+              <div class="text-xs font-semibold uppercase tracking-widest" style="color:#6b7280;letter-spacing:0.03em;">Checkout</div>
+              <div class="font-bold text-sm mt-1.5" style="color:#1f2937;">${checkoutStr}</div>
+            </div>
+          </div>
+          
+          <div class="mt-4 p-3 rounded-lg" style="background:${accentBg};border-left:4px solid ${statusColor};">
+            <div class="${daysClass} text-sm font-bold">
+              ⏱️ ${daysRemaining} days remaining
+            </div>
+          </div>
+        </div>
+      `;
+                }
+
+                const isOccupied = room.status === 'Occupied';
+                const isMaintenance = room.status === 'Maintenance';
+                const buttonText = isOccupied ? 'Mark Available' : 'Mark Occupied';
+                const buttonColor = isOccupied ? '#dc2626' : '#16a34a';
+                const buttonBg = isOccupied ? '#fef2f2' : '#f0fdf4';
+
+                card.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.25rem;">
+        <div>
+          <div class="text-xs font-extrabold uppercase tracking-widest" style="color:#9ca3af;letter-spacing:0.05em;">Room Number</div>
+          <span class="font-extrabold text-3xl mt-1" style="color:#1f2937;display:block;">Room ${room.id}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.75rem;">
+          <span class="text-xs font-bold px-3 py-1.5 rounded-full" style="background:${statusBg};color:${statusColor};border:1.5px solid ${statusBorder};">${room.status}</span>
+          <div style="position:relative;">
+            <button onclick="toggleRoomMenu(${room.id}); return false;" class="p-2 rounded-lg transition-all" style="color:${statusColor};background:${accentBg};border:none;cursor:pointer;" aria-label="Room menu">
+              <i data-lucide="more-vertical" style="width:18px;height:18px;"></i>
+            </button>
+            <div id="room-menu-${room.id}" class="hidden absolute right-0 mt-2 bg-white rounded-xl shadow-lg border-2 z-50" style="border-color:${statusBorder};min-width:224px;">
+              <button onclick="setRoomMaintenance(${room.id}); return false;" class="w-full text-left px-4 py-3 text-sm font-semibold hover:bg-indigo-50 transition-colors flex items-center gap-2" style="color:${isMaintenance ? '#ea580c' : '#4338ca'};border-bottom:1px solid #e5e7eb;border:none;background:transparent;cursor:pointer;">
+                <i data-lucide="wrench" style="width:16px;height:16px;"></i>
+                ${isMaintenance ? 'Remove Maintenance' : 'Set Maintenance'}
+              </button>
+              <button onclick="openEditRoomModal(${room.id}); return false;" class="w-full text-left px-4 py-3 text-sm font-semibold hover:bg-indigo-50 transition-colors flex items-center gap-2" style="color:#4338ca;border:none;background:transparent;cursor:pointer;">
+                <i data-lucide="edit" style="width:16px;height:16px;"></i>
+                Edit Room Info
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="rounded-xl p-4 mb-6 border-2" style="background:${accentBg};border-color:${statusBorder};">
+        <div class="text-xs font-bold uppercase tracking-widest" style="color:${statusColor};letter-spacing:0.05em;">Monthly Rate</div>
+        <div class="font-extrabold text-2xl mt-2" style="color:${statusColor};">₱${room.rate.toLocaleString()}</div>
+      </div>
+      
+      ${tenantInfo}
+      
+      ${isMaintenance ? `
+        <div class="mt-6 w-full text-sm font-bold py-3 rounded-lg text-white text-center transition-all" style="background:#ea580c;">
+          🔧 In Maintenance
+        </div>
+      ` : `
+        <button class="status-btn mt-6 w-full text-sm font-bold py-3 rounded-lg text-white transition-all hover:shadow-md" style="background:${buttonColor};border:none;cursor:pointer;" onclick="toggleRoomStatus(${room.id}); return false;">
+          ${buttonText}
+        </button>
+      `}
+      
+      ${isOccupied ? `<button class="mt-3 w-full text-sm font-bold py-3 rounded-lg text-white transition-all hover:shadow-md" style="background:#4f46e5;border:none;cursor:pointer;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'" onclick="openPaymentModal(${room.id}); return false;">
+        <span style="display:flex;align-items:center;justify-content:center;gap:0.5rem;"><i data-lucide="receipt" style="width:16px;height:16px;"></i> Payment Invoice</span>
+      </button>` : ''}
+    `;
+                grid.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        function toggleRoomMenu(roomId) {
+            const menu = document.getElementById(`room-menu-${roomId}`);
+            if (menu.classList.contains('hidden')) {
+                // Close all other menus
+                document.querySelectorAll('[id^="room-menu-"]').forEach(m => {
+                    if (m.id !== `room-menu-${roomId}`) m.classList.add('hidden');
+                });
+                menu.classList.remove('hidden');
+            } else {
+                menu.classList.add('hidden');
+            }
+        }
+
+        // Close menus when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('[id^="room-menu-"]') && !e.target.closest('button[onclick*="toggleRoomMenu"]')) {
+                document.querySelectorAll('[id^="room-menu-"]').forEach(m => m.classList.add('hidden'));
+            }
+        });
+
+        function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+        function toggleRoomStatus(id) {
+            const room = rooms.find(r => r.id === id);
+
+            // Toggle between Vacant and Occupied only
+            const newStatus = room.status === 'Occupied' ? 'Vacant' : 'Occupied';
+
+            if (newStatus === 'Occupied') {
+                // Skip confirmation for marking as occupied - go straight to tenant modal
+                openTenantModal(id);
+            } else {
+                // Show confirmation for marking as available
+                pendingStatusChange = { roomId: id, newStatus: newStatus };
+                const message = `Are you sure you want to mark Room ${id} as Vacant?`;
+                document.getElementById('confirm-message').textContent = message;
+                document.getElementById('status-confirm-modal').classList.remove('hidden');
+            }
+        }
+
+        function setRoomMaintenance(id) {
+            const room = rooms.find(r => r.id === id);
+
+            if (room.status === 'Maintenance') {
+                // Remove from maintenance - set to Vacant
+                room.status = 'Vacant';
+                tenantData[id] = null;
+                showToast(`Room ${id} removed from maintenance and marked as Vacant`);
+            } else {
+                // Set to maintenance
+                room.status = 'Maintenance';
+                showToast(`Room ${id} marked as Maintenance`);
+            }
+
+            buildRoomGrid();
+            document.getElementById(`room-menu-${id}`).classList.add('hidden');
+        }
+
+        function openEditRoomModal(roomId) {
+            document.getElementById('edit-room-id').textContent = roomId;
+            const room = rooms.find(r => r.id === roomId);
+            document.getElementById('edit-room-rate').value = room.rate;
+            document.getElementById('edit-room-modal').classList.remove('hidden');
+            document.getElementById(`room-menu-${roomId}`).classList.add('hidden');
+        }
+
+        function closeEditRoomModal() {
+            document.getElementById('edit-room-modal').classList.add('hidden');
+        }
+
+        function saveEditRoom() {
+            const roomId = parseInt(document.getElementById('edit-room-id').textContent);
+            const rate = parseFloat(document.getElementById('edit-room-rate').value);
+
+            if (isNaN(rate) || rate <= 0) {
+                showError('Please enter a valid rate.');
+                return;
+            }
+
+            const room = rooms.find(r => r.id === roomId);
+            room.rate = rate;
+
+            buildRoomGrid();
+            closeEditRoomModal();
+            showToast(`Room ${roomId} rate updated to ₱${rate.toLocaleString()}`);
+        }
+
+        function cancelStatusChange() {
+            pendingStatusChange = null;
+            document.getElementById('status-confirm-modal').classList.add('hidden');
+        }
+
+        function confirmStatusChange() {
+            if (!pendingStatusChange) return;
+
+            const { roomId, newStatus } = pendingStatusChange;
+            const room = rooms.find(r => r.id === roomId);
+
+            if (newStatus === 'Vacant') {
+                // Tenant is checking out - show checkout invoice
+                showCheckoutInvoice(roomId);
+            } else {
+                room.status = newStatus;
+                buildRoomGrid();
+                document.getElementById('status-confirm-modal').classList.add('hidden');
+                pendingStatusChange = null;
+            }
+        }
+
+        function showCheckoutInvoice(roomId) {
+            const payment = paymentData[roomId];
+            if (!payment) return;
+
+            // Find the last recorded electricity reading from recurring months
+            let lastElecReading = null;
+            const months = Object.keys(payment.months).sort((a, b) => parseInt(b) - parseInt(a));
+
+            for (const monthKey of months) {
+                const monthData = payment.months[monthKey];
+                const elecBill = monthData.bills.find(b => b.id.includes('electricity'));
+                if (elecBill && elecBill.lastReading !== undefined) {
+                    lastElecReading = elecBill.lastReading;
+                    break;
+                }
+            }
+
+            // Calculate actual months stayed by counting WATER bills that are PAID
+            // Water is charged once per month, so paid water bills = actual months tenant stayed and paid
+            let actualMonthsStayed = 0;
+            let totalElectricWater = 0;
+
+            Object.values(payment.months).forEach(monthData => {
+                let waterChargeThisMonth = 0;
+                monthData.bills.forEach(bill => {
+                    if (bill.id.includes('water') && bill.isPaid) {
+                        waterChargeThisMonth = bill.amount;
+                        totalElectricWater += bill.amount;
+                        actualMonthsStayed++; // Count each paid water bill as one month of actual stay
+                    } else if (bill.id.includes('electricity') && bill.isPaid) {
+                        totalElectricWater += bill.amount;
+                    }
+                });
+            });
+
+            // If no water bills are paid yet, calculate based on unpaid water bills (for early checkout)
+            if (actualMonthsStayed === 0) {
+                Object.values(payment.months).forEach(monthData => {
+                    monthData.bills.forEach(bill => {
+                        if (bill.id.includes('water')) {
+                            totalElectricWater += bill.amount;
+                            actualMonthsStayed++;
+                        } else if (bill.id.includes('electricity')) {
+                            totalElectricWater += bill.amount;
+                        }
+                    });
+                });
+            }
+
+            const advanceAmount = 5000;
+            const advanceDeduction = Math.min(totalElectricWater, advanceAmount);
+            const remainingToPayFromTenant = totalElectricWater - advanceDeduction;
+            const securityRefund = Math.max(0, advanceAmount - totalElectricWater);
+
+            // Show checkout modal with electricity input
+            const checkoutModal = document.createElement('div');
+            checkoutModal.className = 'modal-overlay';
+            checkoutModal.id = 'checkout-modal';
+            checkoutModal.innerHTML = `
+    <div class="modal-content" style="max-width:550px;">
+      <h3 class="font-bold text-lg mb-4" style="color:#312e81;">Tenant Checkout Invoice - Room ${roomId}</h3>
+      
+      <div class="bg-blue-50 rounded-lg p-4 mb-4 border-l-4" style="border-left-color:#2563eb;">
+        <p class="text-sm font-semibold mb-3" style="color:#1e40af;">⚡ Final Electricity Reading</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold mb-1" style="color:#4338ca;">Previous Reading (kWh)</label>
+            <input id="checkout-prev-elec" type="number" min="0" class="w-full border border-blue-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="0" value="${lastElecReading || ''}">
+            <div class="text-xs text-blue-500 mt-1">${lastElecReading ? '(from last month)' : '(enter manually)'}</div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold mb-1" style="color:#4338ca;">Current Reading (kWh)</label>
+            <input id="checkout-curr-elec" type="number" min="0" class="w-full border border-blue-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="0">
+          </div>
+        </div>
+        <button class="w-full mt-3 px-3 py-2 rounded text-white text-xs font-bold transition-all" style="background:#2563eb;" onmouseover="this.style.background='#1d4ed8'" onmouseout="this.style.background='#2563eb'" onclick="calculateCheckoutElectricity(${roomId}, '${advanceAmount}', ${actualMonthsStayed}); return false;">Calculate Final Electricity</button>
+        <div id="checkout-elec-result" class="text-xs mt-2 p-2 rounded bg-white hidden" style="border:1px solid #93c5fd;color:#1e40af;"></div>
+      </div>
+      
+      <div class="bg-red-50 rounded-lg p-4 mb-4 border-l-4" style="border-left-color:#ef4444;">
+        <p class="text-sm font-semibold text-red-800 mb-3">Final Settlement Summary</p>
+        
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between">
+            <span style="color:#312e81;">1 Month Advance (Held):</span>
+            <span class="font-bold" style="color:#4f46e5;">₱${advanceAmount.toLocaleString()}</span>
+          </div>
+          
+          <div class="flex justify-between pt-2 border-t border-red-200">
+            <span style="color:#312e81;">Total Utility Charges (Electricity + Water for ${actualMonthsStayed} month${actualMonthsStayed !== 1 ? 's' : ''} actually stayed):</span>
+            <span class="font-bold" style="color:#ef4444;" id="checkout-total-utils">₱${totalElectricWater.toLocaleString()}</span>
+          </div>
+          
+          <div class="flex justify-between pt-2 border-t border-red-200 mt-3">
+            <span style="color:#312e81;">Deducted from Advance:</span>
+            <span class="font-bold" style="color:#22c55e;" id="checkout-deduction">- ₱${advanceDeduction.toLocaleString()}</span>
+          </div>
+          
+          ${securityRefund > 0 ? `
+            <div class="flex justify-between pt-2 border-t border-red-200">
+              <span style="color:#312e81;">Security Deposit Refund:</span>
+              <span class="font-bold" style="color:#22c55e;">+ ₱${securityRefund.toLocaleString()}</span>
+            </div>
+          ` : ''}
+          
+          <div class="flex justify-between pt-2 border-t-2 border-red-300 mt-3 text-base">
+            <span style="color:#312e81;font-weight:bold;">
+              ${remainingToPayFromTenant > 0 ? 'Amount Tenant Owes' : 'Refund to Tenant'}:
+            </span>
+            <span class="font-extrabold" style="color:${remainingToPayFromTenant > 0 ? '#ef4444' : '#22c55e'};" id="checkout-final">
+              ${remainingToPayFromTenant > 0 ? '₱' + remainingToPayFromTenant.toLocaleString() : '₱' + securityRefund.toLocaleString()}
+            </span>
+          </div>
+          
+          ${remainingToPayFromTenant > 0 ? `<p class="text-xs text-red-700 mt-3 font-semibold">⚠️ Tenant owes: ₱${remainingToPayFromTenant.toLocaleString()}</p>` : `<p class="text-xs text-green-700 mt-3 font-semibold">✓ Tenant gets refund: ₱${Math.abs(remainingToPayFromTenant).toLocaleString()}</p>`}
+        </div>
+      </div>
+      
+      <div class="bg-indigo-50 rounded-lg p-3 mb-4 text-xs" style="border:1px solid #c7d2fe;color:#312e81;">
+        <p class="font-semibold mb-1">How it works:</p>
+        <p class="text-indigo-600 leading-relaxed">
+          1) Water is charged ₱150 per month for actual months tenant stayed (${actualMonthsStayed} month${actualMonthsStayed !== 1 ? 's' : ''}) = ₱${actualMonthsStayed * 150}<br>
+          2) Enter the final electricity reading to calculate the final charge<br>
+          3) The 1 Month Advance (₱5,000) is deducted from utilities<br>
+          4) If advance > utilities, tenant gets a refund<br>
+          5) If utilities > advance, tenant owes the difference
+        </p>
+      </div>
+      
+      <div class="flex gap-3">
+        <button onclick="cancelCheckout()" class="flex-1 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all" style="background:#e0e7ff;color:#4338ca;" onmouseover="this.style.background='#c7d2fe'" onmouseout="this.style.background='#e0e7ff'">Cancel Checkout</button>
+        <button onclick="confirmCheckout(${roomId})" class="flex-1 px-4 py-2.5 rounded-lg font-semibold text-sm text-white transition-all" style="background:#4f46e5;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">Confirm & Mark Vacant</button>
+      </div>
+    </div>
+  `;
+
+            document.body.appendChild(checkoutModal);
+            checkoutModal.addEventListener('click', (e) => {
+                if (e.target === checkoutModal) cancelCheckout();
+            });
+        }
+
+        function calculateCheckoutElectricity(roomId, advanceAmount, actualMonthsStayed) {
+            const prevElec = parseFloat(document.getElementById('checkout-prev-elec').value) || 0;
+            const currElec = parseFloat(document.getElementById('checkout-curr-elec').value) || 0;
+
+            if (prevElec === 0 || currElec === 0) {
+                showError('Please enter both previous and current electricity readings');
+                return;
+            }
+
+            if (currElec <= prevElec) {
+                showError('Current reading must be greater than previous reading');
+                return;
+            }
+
+            const elecCost = (currElec - prevElec) * 16;
+            const waterCost = actualMonthsStayed * 150; // ₱150 per month for actual months stayed
+            const totalUtilities = elecCost + waterCost;
+            const advanceDeduction = Math.min(totalUtilities, advanceAmount);
+            const remainingOwed = totalUtilities - advanceDeduction;
+            const refund = Math.max(0, advanceAmount - totalUtilities);
+
+            // Show calculation result
+            const resultDiv = document.getElementById('checkout-elec-result');
+            resultDiv.innerHTML = `
+    <div class="font-semibold mb-1">Electricity & Water Cost Breakdown:</div>
+    <div class="text-xs space-y-0.5">
+      <div>• Electricity: ${(currElec - prevElec)} kWh × ₱16 = <strong>₱${elecCost.toLocaleString()}</strong></div>
+      <div>• Water: ${actualMonthsStayed} month${actualMonthsStayed !== 1 ? 's' : ''} × ₱150 = <strong>₱${waterCost.toLocaleString()}</strong></div>
+      <div class="pt-1 border-t border-blue-300 mt-1 font-bold">Total Utilities: ₱${totalUtilities.toLocaleString()}</div>
+    </div>
+  `;
+            resultDiv.classList.remove('hidden');
+
+            // Update settlement summary
+            document.getElementById('checkout-total-utils').textContent = `₱${totalUtilities.toLocaleString()}`;
+            document.getElementById('checkout-deduction').textContent = `- ₱${advanceDeduction.toLocaleString()}`;
+
+            const finalDiv = document.getElementById('checkout-final');
+            if (remainingOwed > 0) {
+                finalDiv.textContent = `₱${remainingOwed.toLocaleString()}`;
+                finalDiv.style.color = '#ef4444';
+            } else {
+                finalDiv.textContent = `₱${refund.toLocaleString()}`;
+                finalDiv.style.color = '#22c55e';
+            }
+
+            showToast('✓ Final electricity and water calculated!');
+        }
+
+        function cancelCheckout() {
+            const modal = document.getElementById('checkout-modal');
+            if (modal) modal.remove();
+            document.getElementById('status-confirm-modal').classList.add('hidden');
+            pendingStatusChange = null;
+        }
+
+        function confirmCheckout(roomId) {
+            const room = rooms.find(r => r.id === roomId);
+            room.status = 'Vacant';
+
+            // Update tenant record status
+            const tenantRecord = tenantRecords.find(t => t.room === `Room ${roomId}` && t.status === 'Active');
+            if (tenantRecord) {
+                tenantRecord.status = 'Inactive';
+            }
+
+            tenantData[roomId] = null;
+
+            // Record checkout in payment records
+            const payment = paymentData[roomId];
+            let totalElectricWater = 0;
+            Object.values(payment.months).forEach(monthData => {
+                monthData.bills.forEach(bill => {
+                    if (bill.id.includes('water') || bill.id.includes('electricity')) {
+                        totalElectricWater += bill.amount;
+                    }
+                });
+            });
+
+            const advanceDeduction = Math.min(totalElectricWater, 5000);
+
+            const checkoutRecord = {
+                room_id: `Room ${roomId}`,
+                amount: `₱${advanceDeduction.toLocaleString()}`,
+                date: new Date().toISOString().split('T')[0],
+                status: 'Checkout Settlement',
+                description: `Advance deduction for utilities`
+            };
+            paymentRecords.push(checkoutRecord);
+
+            buildRoomGrid();
+            updatePaymentCharts();
+            updateTenantCharts();
+
+            cancelCheckout();
+            showToast(`✓ Room ${roomId} marked as Vacant. Checkout settled.`);
+        }
+
+        function openTenantModal(roomId) {
+            document.getElementById('modal-room-id').textContent = roomId;
+            document.getElementById('tenant-form').reset();
+            const moveInInput = document.getElementById('tenant-movein');
+            const today = new Date();
+            moveInInput.valueAsDate = today;
+            document.getElementById('tenant-modal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeTenantModal() {
+            document.getElementById('tenant-modal').classList.add('hidden');
+            document.getElementById('tenant-form').reset();
+        }
+
+        function saveTenant() {
+            const name = document.getElementById('tenant-name').value.trim();
+            const phone = document.getElementById('tenant-phone').value.trim();
+            const moveInDate = document.getElementById('tenant-movein').value;
+            const stayMonths = parseInt(document.getElementById('tenant-months').value) || 0;
+
+            if (!name || !phone || !moveInDate || stayMonths < 1) {
+                showError('Please fill in all tenant details and select at least 1 month.');
+                return;
+            }
+
+            const roomIdEl = document.getElementById('modal-room-id');
+            if (!roomIdEl) {
+                showError('Room ID not found.');
+                return;
+            }
+
+            const roomId = parseInt(roomIdEl.textContent);
+            if (isNaN(roomId)) {
+                showError('Invalid room ID.');
+                return;
+            }
+
+            const room = rooms.find(r => r.id === roomId);
+            if (!room) {
+                showError('Room not found.');
+                return;
+            }
+
+            room.status = 'Occupied';
+
+            // Calculate checkout date
+            const checkoutDate = new Date(moveInDate);
+            checkoutDate.setMonth(checkoutDate.getMonth() + stayMonths);
+            const checkoutDateStr = checkoutDate.toISOString().split('T')[0];
+
+            // Store tenant data with both move-in and checkout dates
+            tenantData[roomId] = {
+                name,
+                phone,
+                move_in_date: moveInDate,
+                checkout_date: checkoutDateStr,
+                stay_months: stayMonths
+            };
+
+            // Initialize payment data
+            paymentData[roomId] = {
+                moveInDate: moveInDate,
+                stay_months: stayMonths,
+                months: {}
+            };
+
+            // Create months based on stay duration
+            const moveIn = new Date(moveInDate);
+
+            // Month 1: Setup phase
+            const dueDate1 = new Date(moveIn);
+            dueDate1.setDate(dueDate1.getDate() + 7);
+            const dueDateStr1 = dueDate1.toISOString().split('T')[0];
+
+            paymentData[roomId].months['1'] = {
+                phase: 'setup',
+                bills: [
+                    { id: 'advance', label: '1 Month Advance', amount: 5000, isPaid: false, dueDate: dueDateStr1 },
+                    { id: 'deposit', label: '1 Month Deposit', amount: 5000, isPaid: false, dueDate: dueDateStr1 },
+                    { id: 'wifi', label: 'WiFi Monthly Fee', amount: 500, isPaid: false, dueDate: dueDateStr1 },
+                    { id: 'water', label: 'Water - Monthly', amount: 150, isPaid: false, dueDate: dueDateStr1 }
+                ]
+            };
+
+            // Month 2+ up to stay_months: Recurring phase
+            for (let m = 2; m <= stayMonths; m++) {
+                const dueDate = new Date(moveIn);
+                dueDate.setDate(dueDate.getDate() + (m * 30) + 7);
+                const dueDateStr = dueDate.toISOString().split('T')[0];
+
+                paymentData[roomId].months[m.toString()] = {
+                    phase: 'recurring',
+                    bills: [
+                        { id: `rate-${m}`, label: 'Monthly Rate', amount: 5000, isPaid: false, dueDate: dueDateStr },
+                        { id: `wifi-${m}`, label: 'WiFi Monthly Fee', amount: 500, isPaid: false, dueDate: dueDateStr },
+                        { id: `water-${m}`, label: 'Water - Monthly', amount: 150, isPaid: false, dueDate: dueDateStr }
+                    ]
+                };
+            }
+
+            // Add to tenant history
+            tenantRecords.push({
+                id: `${roomId}-${Date.now()}`,
+                name: name,
+                phone: phone,
+                room: `Room ${roomId}`,
+                movein: moveInDate,
+                status: 'Active'
+            });
+
+            closeTenantModal();
+            buildRoomGrid();
+            showToast(`Room ${roomId} occupied by ${name} (${stayMonths} months stay)`);
+        }
+
+        function openPaymentModal(roomId) {
+            document.getElementById('payment-room-id').textContent = roomId;
+            const tenant = tenantData[roomId];
+
+            if (!paymentData[roomId]) {
+                paymentData[roomId] = {
+                    moveInDate: new Date().toISOString().split('T')[0],
+                    stay_months: 6,
+                    months: {},
+                    selectedMonth: 2,  // Default to month 2
+                    recurringLocked: true  // Default: recurring months are locked
+                };
+            }
+
+            const payment = paymentData[roomId];
+            const stayMonths = payment.stay_months;
+
+            // Update phase text
+            const phaseText = document.getElementById('phase-text');
+            phaseText.textContent = `Month 1 (Setup - Fixed Bills) → Month ${stayMonths} (Recurring with Utilities)`;
+
+            // Render bills by month
+            renderMonthlyBillsList(roomId, payment);
+
+            // Build month selector for utility calculator (only month 2 onwards)
+            const utilSection = document.getElementById('utility-calc-section');
+            const monthSelector = document.getElementById('utility-month-selector');
+
+            let monthOptions = '';
+            for (let m = 2; m <= stayMonths; m++) {
+                monthOptions += `<option value="${m}" ${m === (payment.selectedMonth || 2) ? 'selected' : ''}>Month ${m}</option>`;
+            }
+            monthSelector.innerHTML = monthOptions;
+
+            // Show utility calculator only for month 2+ (which exist in the data)
+            if (stayMonths >= 2) {
+                utilSection.classList.remove('hidden');
+            } else {
+                utilSection.classList.add('hidden');
+            }
+
+            document.getElementById('payment-modal').classList.remove('hidden');
+        }
+
+        function renderMonthlyBillsList(roomId, payment) {
+            const billsList = document.getElementById('bills-list');
+            billsList.innerHTML = '';
+
+            const months = Object.keys(payment.months).sort((a, b) => parseInt(a) - parseInt(b));
+
+            months.forEach(monthKey => {
+                const monthData = payment.months[monthKey];
+                const monthNum = parseInt(monthKey);
+                const isFirstMonth = monthNum === 1;
+                const isRecurring = monthNum > 1;
+                const isLocked = monthData.isLocked === true;
+
+                // Calculate total and paid status
+                let totalAmount = 0;
+                let totalPaid = 0;
+                monthData.bills.forEach(bill => {
+                    totalAmount += bill.amount;
+                    if (bill.isPaid) totalPaid += bill.amount;
+                });
+
+                const allPaid = monthData.bills.every(b => b.isPaid);
+
+                // Color scheme based on payment status and lock state
+                let headerBg, headerBorder, statusColor, statusText, statusBg, textColor;
+
+                if (allPaid) {
+                    // PAID state
+                    headerBg = isLocked ? '#dcfce7' : '#ecfdf5'; // Darker green when locked
+                    headerBorder = '#22c55e';
+                    statusColor = '#16a34a';
+                    statusText = 'PAID';
+                    statusBg = isLocked ? '#22c55e40' : '#22c55e20';
+                    textColor = '#15803d';
+                } else {
+                    // PENDING state
+                    headerBg = isLocked ? '#fee2e2' : '#fef2f2'; // Darker red when locked
+                    headerBorder = '#ef4444';
+                    statusColor = '#dc2626';
+                    statusText = 'PENDING';
+                    statusBg = isLocked ? '#ef444440' : '#ef444420';
+                    textColor = '#b91c1c';
+                }
+
+                const lockIcon = isLocked ? 'lock' : 'unlock';
+
+                // Month header (dropdown toggle)
+                const monthHeaderEl = document.createElement('div');
+                monthHeaderEl.className = `month-header cursor-pointer flex items-center justify-between px-4 py-3 hover:opacity-80 transition-opacity border-b-2`;
+                monthHeaderEl.setAttribute('data-month-key', monthKey);
+                monthHeaderEl.style.backgroundColor = headerBg;
+                monthHeaderEl.style.borderBottomColor = headerBorder;
+                monthHeaderEl.innerHTML = `
+      <div class="flex-1">
+        <div class="font-bold text-sm" style="color:${textColor};">Month ${monthNum} ${isFirstMonth ? '(Setup)' : isRecurring ? '(Recurring)' : ''} ${isLocked ? '🔒 Locked' : ''}</div>
+        <div class="text-xs" style="color:${headerBorder}; margin-top:0.125rem;">${monthData.bills.length} bills • Total: ₱${totalAmount.toLocaleString()}</div>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="text-xs font-semibold px-2 py-0.5 rounded-full" style="background:${statusBg};color:${statusColor};">${statusText}</div>
+        ${isRecurring ? `
+          <button class="lock-btn p-1.5 rounded hover:bg-white hover:bg-opacity-50 transition-colors" style="color:${headerBorder};" onclick="toggleRecurringLock('${roomId}', '${monthKey}'); return false;">
+            <i data-lucide="${lockIcon}" style="width:16px;height:16px;"></i>
+          </button>
+        ` : ''}
+        <i data-lucide="chevron-down" class="month-chevron transition-transform" style="width:18px;height:18px;color:${headerBorder};"></i>
+      </div>
+    `;
+
+                if (!isLocked) {
+                    monthHeaderEl.addEventListener('click', (e) => {
+                        // Only toggle if not clicking the lock button
+                        if (!e.target.closest('.lock-btn')) {
+                            toggleMonthDropdown(monthHeaderEl);
+                        }
+                    });
+                }
+
+                billsList.appendChild(monthHeaderEl);
+
+                // Bills container (collapsible)
+                const billsContainerEl = document.createElement('div');
+                billsContainerEl.className = `month-bills ${isLocked ? 'hidden' : 'hidden'} bg-white`;
+
+                monthData.bills.forEach((bill, billIdx) => {
+                    const daysLeft = calculateDaysLeft(bill.dueDate);
+                    const billStatusColor = bill.isPaid ? '#22c55e' : '#ef4444';
+                    const billStatusText = bill.isPaid ? 'PAID' : 'PENDING';
+                    const billStatusBg = bill.isPaid ? '#22c55e20' : '#ef444420';
+
+                    const billEl = document.createElement('div');
+                    billEl.className = 'bill-item flex items-center justify-between px-4 py-3 border-b hover:bg-indigo-50 transition-colors';
+                    billEl.style.borderBottomColor = '#e0e7ff';
+                    billEl.innerHTML = `
+        <div class="flex-1">
+          <div class="font-semibold text-sm" style="color:#312e81;">${esc(bill.label)}</div>
+          <div class="text-xs text-indigo-400 mt-0.5">
+            Due: ${bill.dueDate} ${daysLeft > 0 ? `(${daysLeft} days)` : '(OVERDUE)'}
+          </div>
+        </div>
+        <div class="text-right mx-3 min-w-fit">
+          <div class="font-bold" style="color:#4f46e5;">₱${bill.amount.toLocaleString()}</div>
+          <div class="text-xs font-semibold px-2 py-0.5 rounded-full mt-1" style="background:${billStatusBg};color:${billStatusColor};">${billStatusText}</div>
+        </div>
+        <button class="ml-2 px-3 py-1.5 rounded text-white text-xs font-bold transition-all" style="background:${bill.isPaid ? '#9ca3af' : '#22c55e'};" onclick="toggleBillPaymentByMonth('${roomId}', '${monthKey}', ${billIdx}); return false;" ${bill.isPaid ? 'disabled' : ''}>
+          ${bill.isPaid ? '✓' : 'Pay'}
+        </button>
+      `;
+                    billsContainerEl.appendChild(billEl);
+                });
+
+                billsList.appendChild(billsContainerEl);
+            });
+
+            lucide.createIcons();
+        }
+
+        function toggleRecurringLock(roomId, monthKey) {
+            const payment = paymentData[roomId];
+            if (!payment.months[monthKey]) return;
+
+            // Toggle lock for this specific month only
+            if (!payment.months[monthKey].isLocked) {
+                payment.months[monthKey].isLocked = true;
+            } else {
+                payment.months[monthKey].isLocked = false;
+            }
+
+            const roomId_current = document.getElementById('payment-room-id').textContent;
+            renderMonthlyBillsList(roomId_current, payment);
+        }
+
+        function toggleMonthDropdown(headerEl) {
+            const chevron = headerEl.querySelector('.month-chevron');
+            const billsContainer = headerEl.nextElementSibling;
+
+            if (billsContainer.classList.contains('hidden')) {
+                billsContainer.classList.remove('hidden');
+                chevron.style.transform = 'rotate(180deg)';
+            } else {
+                billsContainer.classList.add('hidden');
+                chevron.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        function toggleBillPaymentByMonth(roomId, monthKey, billIdx) {
+            const payment = paymentData[roomId];
+            const bill = payment.months[monthKey].bills[billIdx];
+
+            if (!bill.isPaid) {
+                bill.isPaid = true;
+
+                // Record payment
+                const paymentRecord = {
+                    room_id: `Room ${roomId}`,
+                    amount: `₱${bill.amount.toLocaleString()}`,
+                    date: new Date().toISOString().split('T')[0],
+                    status: 'Paid',
+                    description: `Month ${monthKey}: ${bill.label}`
+                };
+                paymentRecords.push(paymentRecord);
+
+                // Store which months are expanded before re-rendering
+                const expandedMonths = new Set();
+                document.querySelectorAll('.month-bills:not(.hidden)').forEach(container => {
+                    const header = container.previousElementSibling;
+                    const monthKey = header.getAttribute('data-month-key');
+                    if (monthKey) expandedMonths.add(monthKey);
+                });
+
+                // Re-render
+                renderMonthlyBillsList(roomId, payment);
+
+                // Restore the expanded states
+                if (expandedMonths.size > 0) {
+                    setTimeout(() => {
+                        expandedMonths.forEach(mKey => {
+                            const monthHeader = document.querySelector(`[data-month-key="${mKey}"]`);
+                            if (monthHeader) {
+                                const billsContainer = monthHeader.nextElementSibling;
+                                const chevron = monthHeader.querySelector('.month-chevron');
+                                if (billsContainer) {
+                                    billsContainer.classList.remove('hidden');
+                                    chevron.style.transform = 'rotate(180deg)';
+                                }
+                            }
+                        });
+                    }, 0);
+                }
+
+                updatePaymentCharts();
+                showToast(`✓ ${bill.label} marked as paid!`);
+            }
+        }
+
+        function getExpandedMonth() {
+            const billsList = document.getElementById('bills-list');
+            const containers = billsList.querySelectorAll('.month-bills');
+            for (let container of containers) {
+                if (!container.classList.contains('hidden')) {
+                    const header = container.previousElementSibling;
+                    return header?.getAttribute('data-month-key');
+                }
+            }
+            return null;
+        }
+
+        function calculateDaysLeft(dueDate) {
+            const due = new Date(dueDate);
+            const today = new Date();
+            const diff = due - today;
+            return Math.ceil(diff / (1000 * 60 * 60 * 24));
+        }
+
+
+
+        function closePaymentModal() {
+            document.getElementById('payment-modal').classList.add('hidden');
+        }
+
+        function calculateUtilityInvoice() {
+            const roomId = parseInt(document.getElementById('payment-room-id').textContent);
+            const monthKey = document.getElementById('utility-month-selector').value;
+            const pe = parseFloat(document.getElementById('inv-prev-elec').value) || 0;
+            const ce = parseFloat(document.getElementById('inv-curr-elec').value) || 0;
+
+            const elecCost = Math.max(0, ce - pe) * 16;
+
+            if (elecCost === 0 && pe === 0 && ce === 0) {
+                showError('Please enter electricity meter readings to calculate.');
+                return;
+            }
+
+            const payment = paymentData[roomId];
+
+            if (!payment.months[monthKey]) {
+                showError('Invalid month selected.');
+                return;
+            }
+
+            // Find or create electricity bill in selected month
+            let elecBill = payment.months[monthKey].bills.find(b => b.id === `electricity-${monthKey}`);
+
+            if (!elecBill) {
+                const dueDate = new Date();
+                dueDate.setDate(dueDate.getDate() + 7);
+                elecBill = {
+                    id: `electricity-${monthKey}`,
+                    label: 'Electricity',
+                    amount: elecCost,
+                    isPaid: false,
+                    dueDate: dueDate.toISOString().split('T')[0]
+                };
+                payment.months[monthKey].bills.push(elecBill);
+            } else {
+                // Update existing electricity bill
+                elecBill.amount = elecCost;
+            }
+
+            renderMonthlyBillsList(roomId, payment);
+
+            // Clear inputs
+            document.getElementById('inv-prev-elec').value = '';
+            document.getElementById('inv-curr-elec').value = '';
+
+            showToast(`✓ Electricity calculated for Month ${monthKey} and added!`);
+        }
+
+        document.getElementById('calc-btn').addEventListener('click', () => {
+            const calcBtn = document.getElementById('calc-btn');
+            if (!calcBtn) return;
+
+            const pe = parseFloat(document.getElementById('prev-elec').value) || 0;
+            const ce = parseFloat(document.getElementById('curr-elec').value) || 0;
+            const pw = parseFloat(document.getElementById('prev-water').value) || 0;
+            const cw = parseFloat(document.getElementById('curr-water').value) || 0;
+            const elec = Math.max(0, ce - pe) * 12;
+            const water = Math.max(0, cw - pw) * 45;
+
+            const resElec = document.getElementById('res-elec');
+            const resWater = document.getElementById('res-water');
+            const resTotal = document.getElementById('res-total');
+            const utilResult = document.getElementById('utility-result');
+
+            if (resElec) resElec.textContent = `₱${elec.toLocaleString()}`;
+            if (resWater) resWater.textContent = `₱${water.toLocaleString()}`;
+            if (resTotal) resTotal.textContent = `₱${(elec + water).toLocaleString()}`;
+            if (utilResult) utilResult.classList.remove('hidden');
+        });
+
+        // ===== DATA SDK (Guest Inquiries) =====
+        const dataHandler = {
+            onDataChanged(data) {
+                inquiries = data;
+                renderInquiries(data);
+            }
+        };
+
+        function renderInquiries(data) {
+            const wrap = document.getElementById('inquiry-list-wrap');
+            const list = document.getElementById('inquiry-list');
+            if (!data.length) { wrap.classList.add('hidden'); return; }
+            wrap.classList.remove('hidden');
+
+            const existingMap = new Map([...list.children].map(el => [el.dataset.id, el]));
+            const fragment = document.createDocumentFragment();
+
+            data.slice().reverse().forEach(item => {
+                const id = item.__backendId;
+                if (existingMap.has(id)) {
+                    const el = existingMap.get(id);
+                    el.querySelector('.inq-name').textContent = item.name;
+                    el.querySelector('.inq-phone').textContent = item.phone;
+                    el.querySelector('.inq-room').textContent = item.room_interest;
+                    fragment.appendChild(el);
+                    existingMap.delete(id);
+                } else {
+                    const row = document.createElement('div');
+                    row.dataset.id = id;
+                    row.className = 'inquiry-row flex items-center justify-between bg-indigo-50 rounded-lg px-3 py-2 text-xs';
+                    row.innerHTML = `
+        <div class="flex-1 flex flex-wrap gap-x-4 gap-y-1">
+          <span class="inq-name font-bold" style="color:#312e81;">${esc(item.name)}</span>
+          <span class="inq-phone text-indigo-400">${esc(item.phone)}</span>
+          <span class="inq-room font-semibold" style="color:#4f46e5;">${esc(item.room_interest)}</span>
+        </div>
+        <button onclick="deleteInquiry('${id}', this)" class="ml-2 text-red-400 hover:text-red-600 transition-colors" aria-label="Delete inquiry">
+          <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
+        </button>
+      `;
+                    fragment.appendChild(row);
+                }
+            });
+            existingMap.forEach(el => el.remove());
+            list.innerHTML = '';
+            list.appendChild(fragment);
+            lucide.createIcons();
+        }
+
+        async function deleteInquiry(backendId, btn) {
+            btn.disabled = true;
+            const item = inquiries.find(i => i.__backendId === backendId);
+            if (!item) return;
+            const result = await window.dataSdk.delete(item);
+            if (!result.isOk) { btn.disabled = false; showError('Failed to delete. Try again.'); }
+        }
+
+        document.getElementById('inq-btn').addEventListener('click', async () => {
+            const name = document.getElementById('inq-name').value.trim();
+            const phone = document.getElementById('inq-phone').value.trim();
+            const room = document.getElementById('inq-room').value;
+            if (!name || !phone || !room) { showError('Please fill in all fields.'); return; }
+
+            if (inquiries.length >= 999) { showError('Maximum inquiries reached (999). Please delete some first.'); return; }
+
+            const btn = document.getElementById('inq-btn');
+            btn.disabled = true;
+            btn.style.opacity = '0.6';
+
+            const result = await window.dataSdk.create({
+                name, phone, room_interest: room, submitted_at: new Date().toISOString()
+            });
+
+            btn.disabled = false;
+            btn.style.opacity = '1';
+
+            if (result.isOk) {
+                document.getElementById('inq-name').value = '';
+                document.getElementById('inq-phone').value = '';
+                document.getElementById('inq-room').value = '';
+                showToast('Inquiry submitted successfully!');
+            } else {
+                showError('Failed to submit. Please try again.');
+            }
+        });
+
+        function showToast(msg) {
+            const el = document.getElementById('inq-toast');
+            if (el) {
+                el.textContent = msg;
+                el.classList.remove('hidden');
+                document.getElementById('inq-error').classList.add('hidden');
+                setTimeout(() => el.classList.add('hidden'), 3000);
+            } else {
+                // Fallback to global toast container
+                const container = document.getElementById('toast-container');
+                const toast = document.createElement('div');
+                toast.className = 'bg-green-500 text-white px-4 py-2.5 rounded-lg font-semibold text-sm toast-enter';
+                toast.textContent = msg;
+                container.appendChild(toast);
+                setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+            }
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('inq-error');
+            if (el) {
+                el.textContent = msg;
+                el.classList.remove('hidden');
+                document.getElementById('inq-toast').classList.add('hidden');
+                setTimeout(() => el.classList.add('hidden'), 4000);
+            } else {
+                // Fallback to global toast container
+                const container = document.getElementById('toast-container');
+                const toast = document.createElement('div');
+                toast.className = 'bg-red-500 text-white px-4 py-2.5 rounded-lg font-semibold text-sm toast-enter';
+                toast.textContent = msg;
+                container.appendChild(toast);
+                setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 4000);
+            }
+        }
+
+        // ===== PAYMENT STATISTICS & CHARTS =====
+        function updatePaymentStats() {
+            let totalCollected = 0;
+            let monthCollected = 0;
+            let pendingAmount = 0;
+            let pendingCount = 0;
+
+            const today = new Date();
+            const currentMonth = today.getMonth();
+            const currentYear = today.getFullYear();
+
+            // Calculate totals
+            paymentRecords.forEach(p => {
+                const amount = parseInt(p.amount.replace(/[₱,]/g, ''));
+                totalCollected += amount;
+
+                const pDate = new Date(p.date);
+                if (pDate.getMonth() === currentMonth && pDate.getFullYear() === currentYear) {
+                    monthCollected += amount;
+                }
+            });
+
+            // Count pending bills
+            Object.values(paymentData).forEach(payment => {
+                if (payment.bills) {
+                    payment.bills.forEach(bill => {
+                        if (!bill.isPaid) {
+                            pendingAmount += bill.amount;
+                            pendingCount++;
+                        }
+                    });
+                }
+            });
+
+            // Update stat displays
+            document.getElementById('stat-total-collected').textContent = `₱${totalCollected.toLocaleString()}`;
+            document.getElementById('stat-month-collected').textContent = `₱${monthCollected.toLocaleString()}`;
+            document.getElementById('stat-month-label').textContent = today.toLocaleString('default', { month: 'long' });
+            document.getElementById('stat-pending').textContent = `₱${pendingAmount.toLocaleString()}`;
+            document.getElementById('stat-pending-count').textContent = `${pendingCount} bills`;
+        }
+
+        function updatePaymentCharts() {
+            updatePaymentStats();
+
+            // Prepare data for monthly chart
+            const monthlyData = {};
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+            paymentRecords.forEach(p => {
+                const pDate = new Date(p.date);
+                const monthKey = months[pDate.getMonth()];
+                const amount = parseInt(p.amount.replace(/[₱,]/g, ''));
+                monthlyData[monthKey] = (monthlyData[monthKey] || 0) + amount;
+            });
+
+            const monthLabels = months.map(m => m);
+            const monthValues = monthLabels.map(m => monthlyData[m] || 0);
+
+            // Monthly revenue chart
+            const ctxMonthly = document.getElementById('payment-chart-monthly');
+            if (paymentChartMonthly) paymentChartMonthly.destroy();
+            paymentChartMonthly = new Chart(ctxMonthly, {
+                type: 'bar',
+                data: {
+                    labels: monthLabels,
+                    datasets: [{
+                        label: 'Revenue (₱)',
+                        data: monthValues,
+                        backgroundColor: '#4f46e5',
+                        borderColor: '#4338ca',
+                        borderWidth: 1,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, ticks: { callback: (v) => '₱' + v.toLocaleString() } } }
+                }
+            });
+
+            // Payment status chart
+            let paidTotal = 0, pendingTotal = 0;
+            paymentRecords.forEach(p => {
+                const amount = parseInt(p.amount.replace(/[₱,]/g, ''));
+                if (p.status === 'Paid') paidTotal += amount;
+            });
+
+            Object.values(paymentData).forEach(payment => {
+                if (payment.bills) {
+                    payment.bills.forEach(bill => {
+                        if (!bill.isPaid) pendingTotal += bill.amount;
+                    });
+                }
+            });
+
+            const ctxStatus = document.getElementById('payment-chart-status');
+            if (paymentChartStatus) paymentChartStatus.destroy();
+            paymentChartStatus = new Chart(ctxStatus, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Paid', 'Pending'],
+                    datasets: [{
+                        data: [paidTotal, pendingTotal],
+                        backgroundColor: ['#22c55e', '#f59e0b'],
+                        borderColor: ['#22c55e', '#f59e0b'],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { font: { size: 12 }, padding: 15 } }
+                    }
+                }
+            });
+        }
+
+        // ===== TENANT STATISTICS & CHARTS =====
+        function updateTenantStats() {
+            const activeTenants = tenantRecords.filter(t => t.status === 'Active').length;
+            const inactiveTenants = tenantRecords.filter(t => t.status === 'Inactive').length;
+            const totalTenants = tenantRecords.length;
+
+            document.getElementById('stat-active-tenants').textContent = activeTenants;
+            document.getElementById('stat-total-tenants').textContent = totalTenants;
+            document.getElementById('stat-inactive-tenants').textContent = inactiveTenants;
+        }
+
+        function updateTenantCharts() {
+            updateTenantStats();
+
+            const activeTenants = tenantRecords.filter(t => t.status === 'Active').length;
+            const inactiveTenants = tenantRecords.filter(t => t.status === 'Inactive').length;
+
+            const ctxTenant = document.getElementById('tenant-chart-status');
+            if (tenantChartStatus) tenantChartStatus.destroy();
+            tenantChartStatus = new Chart(ctxTenant, {
+                type: 'bar',
+                data: {
+                    labels: ['Active', 'Inactive'],
+                    datasets: [{
+                        label: 'Tenants',
+                        data: [activeTenants, inactiveTenants],
+                        backgroundColor: ['#4f46e5', '#c7d2fe'],
+                        borderColor: ['#4338ca', '#a5b4fc'],
+                        borderWidth: 1,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                }
+            });
+        }
+
+        // ===== ELEMENT SDK =====
+        const defaultConfig = {
+            dashboard_title: 'Apartment Rental Dashboard',
+            rooms_section_title: 'Room Overview',
+            utility_section_title: 'Utility Calculator',
+            inquiry_section_title: 'Guest Inquiry',
+            background_color: '#f0f0f8',
+            surface_color: '#3730a3',
+            text_color: '#312e81',
+            primary_action_color: '#4f46e5',
+            secondary_action_color: '#4338ca',
+            font_family: 'Plus Jakarta Sans',
+            font_size: 16
+        };
+
+        async function onConfigChange(config) {
+            const c = key => config[key] || defaultConfig[key];
+            const font = c('font_family');
+            const base = c('font_size');
+            const fontStack = `${font}, sans-serif`;
+
+            // Update background and header
+            document.getElementById('app').style.background = c('background_color');
+            document.getElementById('header-bar').style.background = c('surface_color');
+
+            // Update dashboard title
+            const dashTitle = document.getElementById('el-dashboard-title');
+            if (dashTitle) {
+                dashTitle.textContent = c('dashboard_title');
+                dashTitle.style.fontFamily = fontStack;
+                dashTitle.style.fontSize = `${base * 1.3}px`;
+            }
+
+            // Update rooms title
+            const roomsTitle = document.getElementById('el-rooms-title');
+            if (roomsTitle) {
+                roomsTitle.textContent = c('rooms_section_title');
+                roomsTitle.style.color = c('text_color');
+                roomsTitle.style.fontFamily = fontStack;
+                roomsTitle.style.fontSize = `${base * 1.15}px`;
+            }
+
+            // Update inquiry title
+            const inquiryTitle = document.getElementById('el-inquiry-title');
+            if (inquiryTitle) {
+                inquiryTitle.textContent = c('inquiry_section_title');
+                inquiryTitle.style.color = c('text_color');
+                inquiryTitle.style.fontFamily = fontStack;
+                inquiryTitle.style.fontSize = `${base * 1.15}px`;
+            }
+
+            // Update room cards styling
+            document.querySelectorAll('.room-card .font-bold.text-sm').forEach(el => {
+                el.style.color = c('text_color');
+                el.style.fontFamily = fontStack;
+            });
+            document.querySelectorAll('.room-card .font-extrabold').forEach(el => {
+                el.style.color = c('surface_color');
+            });
+
+            // Update form elements
+            const inquiryBtn = document.getElementById('inq-btn');
+            if (inquiryBtn) inquiryBtn.style.background = c('primary_action_color');
+
+            document.querySelectorAll('label').forEach(el => {
+                el.style.color = c('secondary_action_color');
+                el.style.fontFamily = fontStack;
+                el.style.fontSize = `${base * 0.75}px`;
+            });
+            document.querySelectorAll('input, select').forEach(el => {
+                el.style.fontFamily = fontStack;
+                el.style.fontSize = `${base * 0.875}px`;
+            });
+        }
+
+        function makeMutable(key) {
+            return {
+                get: () => window.elementSdk.config[key] || defaultConfig[key],
+                set: (v) => { window.elementSdk.config[key] = v; window.elementSdk.setConfig({ [key]: v }); }
+            };
+        }
+
+        // ===== INIT =====
+        async function initializeApp() {
+            // Build UI immediately - before SDKs
+            console.log('Initializing app...');
+            const gridEl = document.getElementById('room-grid');
+            console.log('Room grid element:', gridEl);
+
+            buildRoomGrid();
+            console.log('Room grid built. Cards count:', document.querySelectorAll('.room-card').length);
+
+            lucide.createIcons();
+
+            updatePaymentCharts();
+            updateTenantCharts();
+
+            // Initialize Element SDK
+            if (window.elementSdk) {
+                window.elementSdk.init({
+                    defaultConfig,
+                    onConfigChange,
+                    mapToCapabilities: () => ({
+                        recolorables: [
+                            makeMutable('background_color'),
+                            makeMutable('surface_color'),
+                            makeMutable('text_color'),
+                            makeMutable('primary_action_color'),
+                            makeMutable('secondary_action_color')
+                        ],
+                        borderables: [],
+                        fontEditable: makeMutable('font_family'),
+                        fontSizeable: makeMutable('font_size')
+                    }),
+                    mapToEditPanelValues: (config) => new Map([
+                        ['dashboard_title', config.dashboard_title || defaultConfig.dashboard_title],
+                        ['rooms_section_title', config.rooms_section_title || defaultConfig.rooms_section_title],
+                        ['utility_section_title', config.utility_section_title || defaultConfig.utility_section_title],
+                        ['inquiry_section_title', config.inquiry_section_title || defaultConfig.inquiry_section_title]
+                    ])
+                });
+            }
+
+            // Initialize Data SDK
+            if (window.dataSdk) {
+                const dataResult = await window.dataSdk.init(dataHandler);
+                if (!dataResult.isOk) {
+                    console.error('Data SDK init failed:', dataResult.error);
+                }
+            }
+        }
+
+        // Call initialization when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeApp);
+        } else {
+            initializeApp();
+        }
+
+        // ===== TAB SWITCHING =====
+        function switchTab(tab) {
+            // Show/hide content
+            document.getElementById('tab-content-dashboard').style.display = tab === 'dashboard' ? 'flex' : 'none';
+            document.getElementById('tab-content-payments').style.display = tab === 'payments' ? 'flex' : 'none';
+            document.getElementById('tab-content-tenants').style.display = tab === 'tenants' ? 'flex' : 'none';
+
+            // Update button styles
+            document.getElementById('tab-dashboard').style.background = tab === 'dashboard' ? '#4f46e5' : '#e0e7ff';
+            document.getElementById('tab-dashboard').style.color = tab === 'dashboard' ? 'white' : '#4f46e5';
+            document.getElementById('tab-payments').style.background = tab === 'payments' ? '#4f46e5' : '#e0e7ff';
+            document.getElementById('tab-payments').style.color = tab === 'payments' ? 'white' : '#4f46e5';
+            document.getElementById('tab-tenants').style.background = tab === 'tenants' ? '#4f46e5' : '#e0e7ff';
+            document.getElementById('tab-tenants').style.color = tab === 'tenants' ? 'white' : '#4f46e5';
+
+            if (tab === 'payments') {
+                renderPaymentTable();
+                setTimeout(() => updatePaymentCharts(), 100);
+            } else if (tab === 'tenants') {
+                renderTenantTable();
+                setTimeout(() => updateTenantCharts(), 100);
+            }
+        }
+
+        // ===== PAYMENT TRACKING =====
+        function renderPaymentTable() {
+            const tbody = document.getElementById('payments-table-body');
+            const noMsg = document.getElementById('no-payments-msg');
+
+            if (paymentRecords.length === 0) {
+                tbody.innerHTML = '';
+                noMsg.classList.remove('hidden');
+                return;
+            }
+
+            noMsg.classList.add('hidden');
+            tbody.innerHTML = paymentRecords.map((p, idx) => `
+    <tr style="border-bottom:1px solid #e0e7ff;">
+      <td class="px-4 py-3 font-semibold" style="color:#312e81;">${esc(p.room_id)}</td>
+      <td class="px-4 py-3 font-bold" style="color:#4f46e5;">${esc(p.amount)}</td>
+      <td class="px-4 py-3 text-gray-600">${esc(p.date)}</td>
+      <td class="px-4 py-3">
+        <div><span class="px-2 py-1 rounded text-xs font-semibold" style="background:#22c55e20;color:#22c55e;">${esc(p.status)}</span></div>
+        <div class="text-xs text-indigo-400 mt-1">${esc(p.description || '')}</div>
+      </td>
+      <td class="px-4 py-3 text-center">
+        <button onclick="deletePaymentRecord(${idx})" class="text-red-400 hover:text-red-600 transition-colors" aria-label="Delete payment">
+          <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
+        </button>
+      </td>
+    </tr>
+  `).join('');
+            lucide.createIcons();
+        }
+
+        function deletePaymentRecord(idx) {
+            paymentRecords.splice(idx, 1);
+            renderPaymentTable();
+            updatePaymentCharts();
+            showToast('Payment record deleted');
+        }
+
+        function renderTenantTable() {
+            const tbody = document.getElementById('tenants-table-body');
+            const noMsg = document.getElementById('no-tenants-msg');
+
+            if (tenantRecords.length === 0) {
+                tbody.innerHTML = '';
+                noMsg.classList.remove('hidden');
+                return;
+            }
+
+            noMsg.classList.add('hidden');
+            tbody.innerHTML = tenantRecords.map((t, idx) => `
+    <tr style="border-bottom:1px solid #e0e7ff;">
+      <td class="px-4 py-3 font-semibold" style="color:#312e81;">${esc(t.name)}</td>
+      <td class="px-4 py-3 text-indigo-400">${esc(t.phone)}</td>
+      <td class="px-4 py-3 font-bold" style="color:#4f46e5;">${esc(t.room)}</td>
+      <td class="px-4 py-3 text-gray-600">${esc(t.movein)}</td>
+      <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-semibold" style="background:${t.status === 'Active' ? '#4f46e520' : '#6366f120'};color:${t.status === 'Active' ? '#4f46e5' : '#6366f1'};">${esc(t.status)}</span></td>
+    </tr>
+  `).join('');
+            lucide.createIcons();
+        }
+
+        // Helper function for renter modal
+        function closeRenterModal() {
+            document.getElementById('renter-modal').classList.add('hidden');
+        }
+
+        function saveRenter() {
+            showToast('Renter information saved!');
+            closeRenterModal();
+        }
+    </script>
+    <script>(function () { function c() { var b = a.contentDocument || a.contentWindow.document; if (b) { var d = b.createElement('script'); d.innerHTML = "window.__CF$cv$params={r:'9f0c0ecec5b4d50d',t:'MTc3NjkzODgxMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);"; b.getElementsByTagName('head')[0].appendChild(d) } } if (document.body) { var a = document.createElement('iframe'); a.height = 1; a.width = 1; a.style.position = 'absolute'; a.style.top = 0; a.style.left = 0; a.style.border = 'none'; a.style.visibility = 'hidden'; document.body.appendChild(a); if ('loading' !== document.readyState) c(); else if (window.addEventListener) document.addEventListener('DOMContentLoaded', c); else { var e = document.onreadystatechange || function () { }; document.onreadystatechange = function (b) { e(b); 'loading' !== document.readyState && (document.onreadystatechange = e, c()) } } } })();</script>
+</body>
+
+</html>
