@@ -6,6 +6,8 @@ import { z } from "zod";
 import {
   addCalendarDaysIso,
   addCalendarMonthsIso,
+  dueDateForBillingMonth,
+  invoiceUtilityPeriodFromDueDateIso,
 } from "@/lib/lease-utils";
 import { isSupabasePublicConfigured } from "@/lib/env";
 import {
@@ -14,13 +16,17 @@ import {
   updateRoomMonthlyRentSchema,
 } from "@/lib/schemas/lease-occupancy";
 import { recordPaidInvoiceLineSchema } from "@/lib/schemas/payment";
-import { roomStatusSchema, type RoomStatus } from "@/lib/schemas/room-status";
+import { invoiceUiStateSchema } from "@/lib/schemas/invoice-ui-state";
+import {
+  roomStatusSchema,
+  type RoomStatus,
+} from "@/lib/schemas/room-status";
 import { utilityReadingFormSchema } from "@/lib/schemas/utility";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { electricUsageKwh } from "@/lib/billing/electric";
 
 export type ActionResult =
-  | { ok: true; message?: string }
+  | { ok: true; message?: string; warning?: string }
   | { ok: false; error: string };
 
 type SignedInClientResult =
@@ -224,12 +230,97 @@ export async function markPaymentPaidAction(paymentId: string): Promise<ActionRe
   return { ok: true, message: "Payment marked as paid" };
 }
 
+export async function markPaymentsPaidAction(
+  paymentIds: string[],
+): Promise<ActionResult> {
+  const ctx = await requireSignedInClient();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+
+  const parsed = z.array(z.string().uuid()).min(1).safeParse(paymentIds);
+  if (!parsed.success) {
+    return { ok: false, error: firstZodIssue(parsed.error) };
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date().toISOString();
+
+  const { data, error } = await ctx.supabase
+    .from("payments")
+    .update({ status: "paid", paid_date: today, updated_at: now })
+    .in("id", parsed.data)
+    .neq("status", "paid")
+    .select("id");
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/dashboard/payments");
+
+  const n = (data ?? []).length;
+  return { ok: true, message: n === 1 ? "Payment marked as paid" : `Marked ${n} payments as paid` };
+}
+
+const saveLeaseInvoiceUiStateInputSchema = z.object({
+  leaseId: z.string().uuid(),
+  paidLineIds: z.array(z.string()),
+  manualUnlockedMonths: z.array(z.number().int().min(0)),
+  electricByMonth: z.record(
+    z.string(),
+    z.object({
+      prev: z.string(),
+      curr: z.string(),
+      applied: z.boolean(),
+    }),
+  ),
+});
+
+export async function saveLeaseInvoiceUiStateAction(
+  input: unknown,
+): Promise<ActionResult> {
+  const ctx = await requireSignedInClient();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+
+  const parsed = saveLeaseInvoiceUiStateInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: firstZodIssue(parsed.error) };
+  }
+  const p = parsed.data;
+
+  const body = invoiceUiStateSchema.safeParse({
+    paidLineIds: p.paidLineIds,
+    manualUnlockedMonths: p.manualUnlockedMonths,
+    electricByMonth: p.electricByMonth,
+  });
+  if (!body.success) {
+    return { ok: false, error: firstZodIssue(body.error) };
+  }
+
+  const { error } = await ctx.supabase
+    .from("leases")
+    .update({
+      invoice_ui_state: body.data,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", p.leaseId);
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/payments");
+  return { ok: true };
+}
+
 export type CheckoutElectricPrefill =
   | { ok: true; previousReading: number | null }
   | { ok: false; error: string };
 
 export async function fetchCheckoutElectricPrefillAction(
   roomId: string,
+  leaseStartIso?: string,
+  leaseId?: string,
 ): Promise<CheckoutElectricPrefill> {
   const ctx = await requireSignedInClient();
   if (!ctx.ok) return { ok: false, error: ctx.error };
@@ -239,11 +330,31 @@ export async function fetchCheckoutElectricPrefillAction(
     return { ok: false, error: "Invalid room" };
   }
 
-  const { data, error } = await ctx.supabase
+  const leaseRowId = z.string().uuid().safeParse(leaseId);
+  if (!leaseRowId.success) {
+    return { ok: true, previousReading: null };
+  }
+
+  const leaseStartOk =
+    leaseStartIso &&
+    /^\d{4}-\d{2}-\d{2}$/.test(leaseStartIso) &&
+    !Number.isNaN(Date.parse(leaseStartIso));
+
+  const leaseTag = `lease:${leaseRowId.data}`;
+
+  let query = ctx.supabase
     .from("utility_readings")
     .select("current_reading")
     .eq("room_id", parsedId.data)
     .eq("kind", "electric")
+    .ilike("notes", "%Payment invoice%")
+    .ilike("notes", `%${leaseTag}%`);
+
+  if (leaseStartOk) {
+    query = query.gte("period_end", leaseStartIso);
+  }
+
+  const { data, error } = await query
     .order("period_end", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -259,6 +370,74 @@ export async function fetchCheckoutElectricPrefillAction(
     ok: true,
     previousReading: Number.isFinite(prev) ? prev : null,
   };
+}
+
+const fetchInvoiceElectricInputSchema = z.object({
+  roomId: z.string().uuid(),
+  leaseId: z.string().uuid(),
+  leaseStart: z.string(),
+  rentDueDay: z.number().int(),
+  monthCount: z.number().int().min(1).max(12),
+});
+
+export type FetchInvoiceElectricFromDbResult =
+  | {
+      ok: true;
+      byMonthIndex: Record<string, { prev: string; curr: string }>;
+    }
+  | { ok: false; error: string };
+
+/**
+ * Recover invoice electricity meter reads from `utility_readings` when
+ * `leases.invoice_ui_state.electricByMonth` is missing or stale.
+ */
+export async function fetchInvoiceElectricFromDbAction(
+  input: unknown,
+): Promise<FetchInvoiceElectricFromDbResult> {
+  const ctx = await requireSignedInClient();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+
+  const parsed = fetchInvoiceElectricInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: firstZodIssue(parsed.error) };
+  }
+  const p = parsed.data;
+  const leaseTag = `lease:${p.leaseId}`;
+
+  const { data, error } = await ctx.supabase
+    .from("utility_readings")
+    .select("period_start, period_end, previous_reading, current_reading")
+    .eq("room_id", p.roomId)
+    .eq("kind", "electric")
+    .ilike("notes", "%Payment invoice%")
+    .ilike("notes", `%${leaseTag}%`);
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  const rows = data ?? [];
+  const byMonthIndex: Record<string, { prev: string; curr: string }> = {};
+
+  for (let i = 0; i < p.monthCount; i++) {
+    const due = dueDateForBillingMonth(p.leaseStart, p.rentDueDay, i);
+    const { start, end } = invoiceUtilityPeriodFromDueDateIso(due);
+    const row = rows.find(
+      (r) => r.period_start === start && r.period_end === end,
+    );
+    if (
+      row &&
+      row.previous_reading != null &&
+      row.current_reading != null
+    ) {
+      byMonthIndex[String(i)] = {
+        prev: String(row.previous_reading),
+        curr: String(row.current_reading),
+      };
+    }
+  }
+
+  return { ok: true, byMonthIndex };
 }
 
 export async function createLeaseAndOccupyAction(
@@ -448,9 +627,8 @@ export async function checkoutAndVacateAction(
   const elecCost =
     elecKwh !== null ? elecKwh * p.electricRatePerKwh : 0;
   const totalUtils = elecCost + p.waterChargePhp;
-  /** Overage is owed by tenant; refund line is advance less utilities only (deposit not in this amount). */
+  /** Overage owed by tenant when utilities exceed advance (deposit not in this amount). */
   const balanceOwed = Math.max(0, totalUtils - advancePaid);
-  const refundToTenant = Math.max(0, advancePaid - totalUtils);
 
   const now = new Date().toISOString();
   let utilityId: string | null = null;
@@ -540,7 +718,7 @@ export async function checkoutAndVacateAction(
       updated_at: now,
     });
     if (payErr) {
-      paymentWarning = ` Could not auto-create pending payment (${payErr.message}). Record ₱${balanceOwed.toLocaleString("en-PH")} manually if needed.`;
+      paymentWarning = `Could not auto-create pending payment (${payErr.message}). Record ₱${balanceOwed.toLocaleString("en-PH")} manually if needed.`;
     }
   }
 
@@ -548,8 +726,11 @@ export async function checkoutAndVacateAction(
   revalidatePath("/dashboard/payments");
   revalidatePath("/dashboard/tenants");
 
+  const warning = paymentWarning.trim() || undefined;
+
   return {
     ok: true,
-    message: `Unit marked vacant. Utilities (est.): ₱${totalUtils.toLocaleString("en-PH")}. Advance remaining for tenant (est.): ₱${refundToTenant.toLocaleString("en-PH")}; balance if any: ₱${balanceOwed.toLocaleString("en-PH")}.${paymentWarning}`,
+    message: "Checkout complete.",
+    warning,
   };
 }

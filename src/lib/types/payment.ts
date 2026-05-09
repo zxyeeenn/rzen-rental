@@ -30,4 +30,6 @@ export type PaymentSnapshot = {
   records: PaymentRecord[];
   /** Chronological buckets for charts */
   chartByMonth: PaymentMonthBucket[];
+  /** Set when payments query failed (signed in); UI can show retry. */
+  loadError: string | null;
 };

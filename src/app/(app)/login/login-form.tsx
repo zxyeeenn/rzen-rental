@@ -43,11 +43,10 @@ export function LoginForm({
   return (
     <Card className="mx-auto w-full max-w-md">
       <CardHeader>
-        <CardTitle>Owner sign in</CardTitle>
+        <CardTitle>Sign in</CardTitle>
         <CardDescription>
-          Use the email and password from your Supabase Auth user. Create the
-          user in the Supabase dashboard (Authentication → Users) if you have
-          not already.
+          Use the email and password you were given for this property. If you
+          need access, ask your administrator.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -68,7 +67,7 @@ export function LoginForm({
 
             if (!supabaseUrl.trim() || !supabaseAnonKey.trim()) {
               toast.error(
-                "Supabase URL or anon key is missing. Add them to .env.local and restart `npm run dev`.",
+                "Sign-in isn't available on this site right now. Please try again later.",
               );
               return;
             }
@@ -120,7 +119,7 @@ export function LoginForm({
         </form>
       </CardContent>
       <CardFooter className="text-xs text-muted-foreground">
-        Sign in to open the owner dashboard (rooms and payments).
+        After you sign in, you can manage rooms, rent, and payments.
       </CardFooter>
     </Card>
   );

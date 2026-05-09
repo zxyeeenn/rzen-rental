@@ -68,6 +68,22 @@ export function dueDateForBillingMonth(
 }
 
 /**
+ * Billing-period window (`period_start` / `period_end`) for utility rows tied to an
+ * invoice month. Matches `RoomPaymentInvoiceDialog` and `recordUtilityReadingAction`.
+ */
+export function invoiceUtilityPeriodFromDueDateIso(dueDateIso: string): {
+  start: string;
+  end: string;
+} {
+  const d = parseLocalDateOnly(dueDateIso);
+  const y = d.getFullYear();
+  const m = d.getMonth();
+  const start = new Date(y, m, 1);
+  const end = new Date(y, m + 1, 0);
+  return { start: formatIsoDateOnlyLocal(start), end: formatIsoDateOnlyLocal(end) };
+}
+
+/**
  * The next day the tenant is scheduled to pay (per billing month index), on or after `from`.
  * Aligns with invoice line "Due" dates from {@link dueDateForBillingMonth}.
  */
@@ -83,6 +99,26 @@ export function computeNextRentDueDate(
     if (d >= fromDay) return d;
   }
   return parseLocalDateOnly(dueDateForBillingMonth(leaseStartIso, rentDueDay, 0));
+}
+
+/**
+ * Next due date for recurring monthly charges (rent, utilities on invoice),
+ * skipping month index 0 (setup: advance / deposit only). Matches owner UX:
+ * "next payment" on the room card is the first full billing cycle, not the
+ * setup-window due right after move-in.
+ */
+export function computeNextRecurringPaymentDueDate(
+  rentDueDay: number,
+  leaseStartIso: string,
+  from: Date = new Date(),
+): Date {
+  const fromDay = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  for (let i = 1; i < 48; i++) {
+    const iso = dueDateForBillingMonth(leaseStartIso, rentDueDay, i);
+    const d = parseLocalDateOnly(iso);
+    if (d >= fromDay) return d;
+  }
+  return parseLocalDateOnly(dueDateForBillingMonth(leaseStartIso, rentDueDay, 1));
 }
 
 /**

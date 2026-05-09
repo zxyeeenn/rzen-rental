@@ -14,6 +14,7 @@ const emptyPaymentSnapshot: PaymentSnapshot = {
   pendingCount: 0,
   records: [],
   chartByMonth: [],
+  loadError: null,
 };
 
 function currentMonthKey(): string {
@@ -98,7 +99,13 @@ export async function fetchPaymentSnapshot(): Promise<PaymentSnapshot> {
     )
     .order("created_at", { ascending: false });
 
-  if (paymentsError) return emptyPaymentSnapshot;
+  if (paymentsError) {
+    console.error("[payments]", paymentsError.message);
+    return {
+      ...emptyPaymentSnapshot,
+      loadError: "Could not load payments. Check your connection and try again.",
+    };
+  }
 
   const records = (payments ?? []).map((row) =>
     mapPaymentRowToRecord(row as Parameters<typeof mapPaymentRowToRecord>[0]),
@@ -120,5 +127,6 @@ export async function fetchPaymentSnapshot(): Promise<PaymentSnapshot> {
     pendingCount: pendingRecords.length,
     records,
     chartByMonth: buildPaymentChartByMonth(records),
+    loadError: null,
   };
 }

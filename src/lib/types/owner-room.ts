@@ -1,3 +1,4 @@
+import type { InvoiceUiState } from "@/lib/schemas/invoice-ui-state";
 import type { RoomListing } from "@/lib/schemas/listing";
 import type { RoomStatus } from "@/lib/schemas/room-status";
 
@@ -15,6 +16,8 @@ export type LeaseSummary = {
   depositHeldPhp: number;
   nextDueDate: string;
   notes: string | null;
+  /** Synced invoice dialog progress when signed in + column present; otherwise empty. */
+  invoiceUiState: InvoiceUiState;
 };
 
 export type OwnerRoom = {

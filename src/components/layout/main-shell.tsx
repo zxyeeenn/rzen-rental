@@ -27,39 +27,57 @@ export function MainShell({
     return (
       <div className="flex min-h-svh flex-col bg-[#f0f0f8] dark:bg-background">
         <header
-          className="w-full shrink-0 border-b border-indigo-950/25 bg-indigo-950 text-white dark:border-border dark:bg-card dark:text-foreground"
+          className={cn(
+            "w-full shrink-0 bg-indigo-950 text-white dark:bg-card dark:text-foreground",
+            onLoginRoute
+              ? ""
+              : "border-b border-indigo-950/25 dark:border-border",
+          )}
           role="banner"
         >
-          <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-5 sm:flex-row sm:items-center sm:justify-between md:px-6 lg:px-8">
-            <div className="flex min-w-0 items-start gap-4 sm:items-center">
+          <div
+            className={cn(
+              "mx-auto max-w-6xl px-4 py-5 md:px-6 lg:px-8",
+              onLoginRoute
+                ? "flex flex-col items-center text-center"
+                : "flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
+            )}
+          >
+            <div
+              className={cn(
+                "flex min-w-0 items-start gap-4",
+                onLoginRoute
+                  ? "flex-col items-center"
+                  : "sm:items-center",
+              )}
+            >
               <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-indigo-600 shadow-sm dark:bg-primary">
                 <Building2
                   className="size-[22px] text-indigo-100 dark:text-primary-foreground"
                   aria-hidden
                 />
               </div>
-              <div className="min-w-0 space-y-1">
-                <Link
-                  href="/dashboard"
-                  className="block truncate text-xl font-extrabold tracking-tight text-white hover:text-indigo-100 sm:text-2xl dark:text-foreground dark:hover:text-foreground"
-                >
-                  RZen Rental
-                </Link>
+              <div className={cn("min-w-0 space-y-1", onLoginRoute && "text-center")}>
+                {onLoginRoute ? (
+                  <p className="block text-xl font-extrabold tracking-tight text-white sm:text-2xl dark:text-foreground">
+                    RZen Rentals
+                  </p>
+                ) : (
+                  <Link
+                    href="/dashboard"
+                    className="block truncate text-xl font-extrabold tracking-tight text-white hover:text-indigo-100 sm:text-2xl dark:text-foreground dark:hover:text-foreground"
+                  >
+                    RZen Rental
+                  </Link>
+                )}
                 <p className="text-sm font-medium leading-snug text-indigo-200/95 dark:text-muted-foreground">
                   Bohol · rooms &amp; payments
                 </p>
               </div>
             </div>
 
-            <div className="flex shrink-0 flex-col items-stretch gap-3 sm:items-end">
-              {onLoginRoute ? (
-                <Link
-                  href="/dashboard"
-                  className="inline-flex h-9 items-center justify-center self-start rounded-lg border border-white/35 bg-white/10 px-4 text-sm font-semibold text-white transition-colors hover:bg-white/18 sm:self-end dark:border-border dark:bg-muted dark:text-foreground dark:hover:bg-muted/80"
-                >
-                  ← Dashboard
-                </Link>
-              ) : (
+            {!onLoginRoute ? (
+              <div className="flex shrink-0 flex-col items-stretch gap-3 sm:items-end">
                 <Link
                   href="/login"
                   className={cn(
@@ -69,8 +87,8 @@ export function MainShell({
                   <LogIn className="size-4 opacity-90" aria-hidden />
                   Sign in
                 </Link>
-              )}
-            </div>
+              </div>
+            ) : null}
           </div>
         </header>
 

@@ -7,7 +7,11 @@ import { MoreVertical, Pencil, ReceiptText, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 import { updateRoomStatusAction } from "@/app/(app)/dashboard/actions";
-import { RoomCheckoutDialog } from "@/components/dashboard/room-checkout-dialog";
+import {
+  RoomCheckoutDialog,
+  RoomCheckoutSuccessDialog,
+  type RoomCheckoutCompleteDetail,
+} from "@/components/dashboard/room-checkout-dialog";
 import { RoomEditRateDialog } from "@/components/dashboard/room-edit-rate-dialog";
 import { RoomOccupyDialog } from "@/components/dashboard/room-occupy-dialog";
 import { RoomPaymentInvoiceDialog } from "@/components/dashboard/room-payment-invoice-dialog";
@@ -32,6 +36,59 @@ import { roomShortTitle } from "@/lib/room-display-name";
 import type { RoomStatus } from "@/lib/schemas/room-status";
 import type { OwnerRoom } from "@/lib/types/owner-room";
 import { cn } from "@/lib/utils";
+
+function checkoutSuccessStorageKey(roomId: string): string {
+  return `rzen:checkoutSuccess:${roomId}`;
+}
+
+function readCheckoutSuccessFromStorage(
+  roomId: string,
+): RoomCheckoutCompleteDetail | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(checkoutSuccessStorageKey(roomId));
+    if (!raw) return null;
+    const o = JSON.parse(raw) as unknown;
+    if (!o || typeof o !== "object") return null;
+    const r = o as Record<string, unknown>;
+    if (
+      typeof r.roomDisplayName !== "string" ||
+      typeof r.tenantName !== "string" ||
+      typeof r.message !== "string"
+    ) {
+      return null;
+    }
+    return {
+      roomDisplayName: r.roomDisplayName,
+      tenantName: r.tenantName,
+      message: r.message,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeCheckoutSuccessToStorage(
+  roomId: string,
+  detail: RoomCheckoutCompleteDetail,
+): void {
+  try {
+    sessionStorage.setItem(
+      checkoutSuccessStorageKey(roomId),
+      JSON.stringify(detail),
+    );
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+function clearCheckoutSuccessFromStorage(roomId: string): void {
+  try {
+    sessionStorage.removeItem(checkoutSuccessStorageKey(roomId));
+  } catch {
+    /* */
+  }
+}
 
 const STATUS_LABEL: Record<RoomStatus, string> = {
   vacant: "Vacant",
@@ -402,8 +459,15 @@ function DashboardRoomCard({
   const [occupyOpen, setOccupyOpen] = React.useState(false);
   const [invoiceOpen, setInvoiceOpen] = React.useState(false);
   const [checkoutOpen, setCheckoutOpen] = React.useState(false);
+  const [checkoutSuccessDetail, setCheckoutSuccessDetail] =
+    React.useState<RoomCheckoutCompleteDetail | null>(null);
   const [simpleVacateOpen, setSimpleVacateOpen] = React.useState(false);
   const [maintPending, startMaint] = React.useTransition();
+
+  React.useLayoutEffect(() => {
+    const restored = readCheckoutSuccessFromStorage(room.id);
+    if (restored) setCheckoutSuccessDetail(restored);
+  }, [room.id]);
 
   const shortTitle = cardRoomTitle(room);
   const roomDigits = roomNumberDigits(shortTitle);
@@ -486,7 +550,7 @@ function DashboardRoomCard({
               ) : null}
               <dl className="mt-3 grid gap-3 border-t border-border/60 pt-3 text-xs">
                 <div className="flex justify-between gap-3">
-                  <dt className="text-muted-foreground">Next payment due</dt>
+                  <dt className="text-muted-foreground">Next monthly due</dt>
                   <dd className="min-w-0 text-right font-medium">
                     {room.lease.nextDueDate}
                   </dd>
@@ -639,9 +703,21 @@ function DashboardRoomCard({
           open={checkoutOpen}
           onOpenChange={setCheckoutOpen}
           canPersist={canPersist}
-          onSuccess={() => router.refresh()}
+          onCheckoutComplete={(detail) => {
+            writeCheckoutSuccessToStorage(room.id, detail);
+            setCheckoutSuccessDetail(detail);
+          }}
         />
       ) : null}
+
+      <RoomCheckoutSuccessDialog
+        detail={checkoutSuccessDetail}
+        onDismiss={() => {
+          clearCheckoutSuccessFromStorage(room.id);
+          setCheckoutSuccessDetail(null);
+          router.refresh();
+        }}
+      />
 
       <SimpleVacateDialog
         room={room}
