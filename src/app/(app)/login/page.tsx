@@ -9,15 +9,7 @@ export default async function LoginPage({
   const next = sp.next;
 
   return (
-    <div className="space-y-6">
-      <header>
-        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Account
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
-          Owner access
-        </h1>
-      </header>
+    <div className="flex min-h-[min(70vh,40rem)] flex-col items-center justify-center">
       <LoginForm
         defaultNext={next ?? "/dashboard"}
         supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}

@@ -1,5 +1,8 @@
 import { VACANT_LISTINGS } from "@/data/vacant-listings";
-import { computeNextRentDueDate, formatDatePH } from "@/lib/lease-utils";
+import {
+  computeNextRecurringPaymentDueDate,
+  formatDatePH,
+} from "@/lib/lease-utils";
 import type { RoomListing } from "@/lib/schemas/listing";
 import type { RoomStatus } from "@/lib/schemas/room-status";
 import type { LeaseSummary, OwnerRoom } from "@/lib/types/owner-room";
@@ -44,7 +47,7 @@ function mockLeaseForListing(
           ? "2026-01-05"
           : "2025-12-01";
 
-  const next = computeNextRentDueDate(rentDueDay, leaseStart);
+  const next = computeNextRecurringPaymentDueDate(rentDueDay, leaseStart);
 
   return {
     id: `offline-lease-${listing.id}`,
@@ -65,6 +68,7 @@ function mockLeaseForListing(
         : index === 6
           ? "End date tentative; renewal in discussion."
           : null,
+    invoiceUiState: {},
   };
 }
 

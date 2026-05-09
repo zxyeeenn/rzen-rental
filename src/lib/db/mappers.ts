@@ -1,7 +1,13 @@
 import { z } from "zod";
 
-import { computeNextRentDueDate, formatDatePH } from "@/lib/lease-utils";
+import {
+  computeNextRecurringPaymentDueDate,
+  formatDatePH,
+} from "@/lib/lease-utils";
 import { listingPhotoSchema, roomListingSchema } from "@/lib/schemas/listing";
+import {
+  parseInvoiceUiState,
+} from "@/lib/schemas/invoice-ui-state";
 import { roomStatusSchema } from "@/lib/schemas/room-status";
 import type { LeaseSummary, OwnerRoom } from "@/lib/types/owner-room";
 
@@ -35,6 +41,7 @@ const leaseRowSchema = z.object({
   deposit_held_php: z.coerce.number(),
   is_active: z.boolean(),
   notes: z.string().nullable().optional(),
+  invoice_ui_state: z.unknown().optional(),
 });
 
 export type LeaseRow = z.infer<typeof leaseRowSchema>;
@@ -63,7 +70,10 @@ export function mapRoomRowToListing(row: RoomRow) {
 }
 
 function leaseRowToSummary(row: LeaseRow): LeaseSummary {
-  const next = computeNextRentDueDate(row.rent_due_day, row.lease_start);
+  const next = computeNextRecurringPaymentDueDate(
+    row.rent_due_day,
+    row.lease_start,
+  );
   return {
     id: row.id,
     tenantName: row.tenant_name,
@@ -78,6 +88,7 @@ function leaseRowToSummary(row: LeaseRow): LeaseSummary {
     depositHeldPhp: row.deposit_held_php,
     nextDueDate: formatDatePH(next),
     notes: row.notes ?? null,
+    invoiceUiState: parseInvoiceUiState(row.invoice_ui_state),
   };
 }
 

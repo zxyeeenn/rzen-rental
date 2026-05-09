@@ -54,3 +54,60 @@ export function electricChargePhp(
   if (kwh === null) return null;
   return kwh * ratePerKwh;
 }
+
+/**
+ * Parse invoice meter fields for preview / save.
+ * - **Month 0:** empty previous means “starting meter” → **0** kWh.
+ * - **Month 1+:** empty previous is invalid until carried from the prior month.
+ * - Empty current always means “no reading yet” → do not compute usage.
+ */
+export function parseInvoiceMeterInputs(
+  prevRaw: string,
+  currRaw: string,
+  invoiceMonthIndex: number,
+): { prevN: number; currN: number } {
+  const currT = currRaw.trim();
+  const currN =
+    currT === "" ? NaN : Number.isFinite(Number(currT)) ? Number(currT) : NaN;
+
+  const prevT = prevRaw.trim();
+  let prevN: number;
+  if (prevT === "") {
+    prevN =
+      invoiceMonthIndex === 0 &&
+      Number.isFinite(currN) &&
+      currN >= 0
+        ? 0
+        : NaN;
+  } else {
+    const p = Number(prevT);
+    prevN = Number.isFinite(p) && p >= 0 ? p : NaN;
+  }
+
+  return { prevN, currN };
+}
+
+/**
+ * Checkout final read: empty previous means **0** when current is entered; both
+ * empty → no electricity line.
+ */
+export function parseCheckoutMeterInputs(
+  prevRaw: string,
+  currRaw: string,
+): { prevN: number; currN: number } {
+  const currT = currRaw.trim();
+  const currN =
+    currT === "" ? NaN : Number.isFinite(Number(currT)) ? Number(currT) : NaN;
+
+  const prevT = prevRaw.trim();
+  let prevN: number;
+  if (prevT !== "") {
+    const p = Number(prevT);
+    prevN = Number.isFinite(p) && p >= 0 ? p : NaN;
+  } else {
+    prevN =
+      Number.isFinite(currN) && currN >= 0 ? 0 : NaN;
+  }
+
+  return { prevN, currN };
+}
