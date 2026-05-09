@@ -627,9 +627,8 @@ export async function checkoutAndVacateAction(
   const elecCost =
     elecKwh !== null ? elecKwh * p.electricRatePerKwh : 0;
   const totalUtils = elecCost + p.waterChargePhp;
-  /** Overage is owed by tenant; refund line is advance less utilities only (deposit not in this amount). */
+  /** Overage owed by tenant when utilities exceed advance (deposit not in this amount). */
   const balanceOwed = Math.max(0, totalUtils - advancePaid);
-  const refundToTenant = Math.max(0, advancePaid - totalUtils);
 
   const now = new Date().toISOString();
   let utilityId: string | null = null;

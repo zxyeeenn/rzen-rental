@@ -480,7 +480,7 @@ export function RoomPaymentInvoiceDialog({
           .sort((a, b) => a - b);
         if (indices.length === 0) return prev;
 
-        let next: Record<number, MonthElectric> = { ...prev };
+        const next: Record<number, MonthElectric> = { ...prev };
         for (const i of indices) {
           const v = res.byMonthIndex[String(i)]!;
           next[i] = { prev: v.prev, curr: v.curr, applied: true };
